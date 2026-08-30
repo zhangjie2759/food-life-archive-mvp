@@ -29,21 +29,31 @@ function isoDaysAgo(daysAgo: number): string {
 export function createDemoData(): { entries: FoodEntry[]; groups: RankGroup[] } {
   const entries = demoSeed.map((item) => {
     const createdAt = isoDaysAgo(item.daysAgo)
+    const isBlack = item.id === 'demo-tiramisu'
+    const classification: Record<string, { aiName: string; type: string; foodGroup: string; diet: string }> = {
+      'demo-braised-pork': { aiName: '红烧肉', type: '菜品', foodGroup: '家常菜', diet: '荤' },
+      'demo-sushi': { aiName: '握寿司', type: '主食', foodGroup: '寿司', diet: '荤' },
+      'demo-noodles': { aiName: '牛肉面', type: '主食', foodGroup: '面食', diet: '荤' },
+      'demo-hotpot': { aiName: '成都火锅', type: '菜品', foodGroup: '火锅', diet: '荤' },
+      'demo-riceball': { aiName: '饭团', type: '主食', foodGroup: '米饭', diet: '素' },
+      'demo-tiramisu': { aiName: '提拉米苏', type: '甜品', foodGroup: '蛋糕', diet: '素' },
+    }
     return {
       ...item,
+      ...classification[item.id],
       image: `${base}demo/${item.image}`,
       occurredAt: createdAt.slice(0, 10),
       createdAt,
       isDemo: true,
-      rankStatus: item.id === 'demo-tiramisu' ? 'blacklisted' as const : 'ranked' as const,
-      ...(item.id === 'demo-tiramisu' ? { blacklistedAt: createdAt, blacklistOrder: 0 } : {}),
+      rankStatus: 'ranked' as const,
+      board: isBlack ? 'black' as const : 'red' as const,
+      ...(isBlack ? { blacklistedAt: createdAt, blacklistOrder: 0 } : { bestowedName: item.name, bestowedAt: createdAt, lastRankChange: 'NEW' as const }),
     }
   })
-  const groups = entries.filter((entry) => entry.rankStatus === 'ranked').map((entry, index) => ({
-    id: `rank-${entry.id}`,
-    entryIds: [entry.id],
-    order: index,
-    createdAt: entry.createdAt,
-  }))
+  const nextOrder = { red: 0, black: 0 }
+  const groups = entries.map((entry) => {
+    const board = entry.board ?? 'red'
+    return { id: `rank-${board}-${entry.id}`, entryIds: [entry.id], board, order: nextOrder[board]++, createdAt: entry.createdAt }
+  })
   return { entries, groups }
 }

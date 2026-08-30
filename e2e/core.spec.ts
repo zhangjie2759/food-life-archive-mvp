@@ -1,7 +1,21 @@
 import { resolve } from 'node:path'
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 const testPhoto = resolve('public/pwa-192x192.png')
+
+async function chooseNewUntilCeremony(page: Page) {
+  for (let count = 0; count < 4; count += 1) {
+    if (await page.getByTestId('ranking-ceremony').isVisible().catch(() => false)) return
+    const choice = page.getByTestId('choose-new')
+    await expect(choice).toBeEnabled()
+    await choice.click()
+    await page.waitForFunction(() => {
+      if (document.querySelector('[data-testid="ranking-ceremony"]')) return true
+      const button = document.querySelector<HTMLButtonElement>('[data-testid="choose-new"]')
+      return Boolean(button && !button.disabled)
+    })
+  }
+}
 
 test.beforeEach(async ({ page, context }) => {
   await context.clearCookies()
@@ -24,28 +38,17 @@ test('mobile core flow: photo, editable mock suggestion, comparisons, ranking', 
   await page.getByRole('button', { name: '记录' }).click()
   await page.getByTestId('camera-import-input').setInputFiles(testPhoto)
   await expect(page.getByTestId('suggestion-form')).toBeVisible()
-  await expect(page.getByText(/验证版 AI 建议/)).toBeVisible()
+  await expect(page.getByText(/验证版模拟识别/)).toBeVisible()
   await page.getByTestId('food-name').fill('雨夜的煲仔饭')
-  await page.getByTestId('food-note').fill('吃完以后再认真决定它的位置')
   await page.getByTestId('confirm-entry').click()
-  await expect(page.getByTestId('completion-card')).toContainText('先记录')
+  await expect(page.getByTestId('completion-card')).toContainText('记录在册')
   await page.getByTestId('view-ranking').click()
   await expect(page.getByTestId('pending-list')).toContainText('雨夜的煲仔饭')
-  await page.getByRole('button', { name: '开始复判雨夜的煲仔饭' }).click()
+  await page.getByRole('button', { name: '列入红榜雨夜的煲仔饭' }).click()
   await expect(page.getByTestId('comparison-view')).toBeVisible()
-  for (let count = 0; count < 4; count += 1) {
-    if (await page.getByTestId('completion-card').isVisible().catch(() => false)) break
-    if (!await page.getByTestId('choose-new').isVisible().catch(() => false)) break
-    await expect(page.getByTestId('choose-new')).toBeEnabled()
-    await page.getByTestId('choose-new').click()
-    await page.waitForFunction(() => {
-      if (document.querySelector('[data-testid="completion-card"]')) return true
-      const choice = document.querySelector<HTMLButtonElement>('[data-testid="choose-new"]')
-      return Boolean(choice && !choice.disabled)
-    })
-  }
-  await expect(page.getByTestId('completion-card')).toContainText('排在第 1 位')
-  await page.getByTestId('view-ranking').click()
+  await chooseNewUntilCeremony(page)
+  await expect(page.getByTestId('ranking-ceremony')).toContainText('榜首易主')
+  await page.getByTestId('ranking-ceremony').getByRole('button', { name: '查看最新榜单' }).click()
   await expect(page.getByTestId('ranking-page')).toContainText('雨夜的煲仔饭')
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
@@ -61,9 +64,9 @@ test('defer keeps the entry locally in pending', async ({ page }) => {
   await page.getByTestId('food-name').fill('以后再决定的味道')
   await page.getByTestId('confirm-entry').click()
   await page.getByTestId('view-ranking').click()
-  await page.getByRole('button', { name: '开始复判以后再决定的味道' }).click()
+  await page.getByRole('button', { name: '列入红榜以后再决定的味道' }).click()
   await page.getByTestId('choose-later').click()
-  await expect(page.getByTestId('completion-card')).toContainText('先记录')
+  await expect(page.getByTestId('completion-card')).toContainText('记录在册')
   await page.getByTestId('view-ranking').click()
   await expect(page.getByTestId('pending-list')).toContainText('以后再决定的味道')
   await page.reload()
@@ -81,7 +84,7 @@ test('camera-first flow opens a live viewfinder and captures into ranking', asyn
   await expect(page.getByTestId('suggestion-form')).toBeVisible()
   await page.getByTestId('food-name').fill('摄像头拍下的味道')
   await page.getByTestId('confirm-entry').click()
-  await expect(page.getByTestId('completion-card')).toContainText('先记录')
+  await expect(page.getByTestId('completion-card')).toContainText('记录在册')
   await page.getByTestId('view-ranking').click()
   await expect(page.getByTestId('pending-list')).toContainText('摄像头拍下的味道')
 })
@@ -91,7 +94,7 @@ test('manifest, static base and offline app shell', async ({ page, context, brow
   await expect(page.getByTestId('ranking-page')).toBeVisible()
   const manifest = await page.request.get('./manifest.webmanifest')
   expect(manifest.ok()).toBe(true)
-  expect((await manifest.json()).name).toContain('我的味觉档案')
+  expect((await manifest.json()).name).toContain('私人美食评审局')
   await page.waitForFunction(() => 'serviceWorker' in navigator)
   await page.evaluate(() => navigator.serviceWorker.ready)
   if (browserName === 'webkit') {
@@ -100,7 +103,7 @@ test('manifest, static base and offline app shell', async ({ page, context, brow
   }
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByText(/不是最好吃/)).toBeVisible()
+  await expect(page.getByText(/PERSONAL FOOD AUTHORITY/)).toBeVisible()
   await context.setOffline(false)
   test.info().annotations.push({ type: 'browser', description: browserName })
 })
@@ -114,8 +117,8 @@ test('month/year switch, manual reorder and ranking image export', async ({ page
   await page.locator('.rank-adjust button[aria-label^="下移"]').first().click()
   await expect(page.locator('.rank-row strong').nth(1)).toHaveText(firstName ?? '')
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: '生成分享图' }).click()
-  expect((await download).suggestedFilename()).toMatch(/我的年榜.*\.png$/)
+  await page.getByRole('button', { name: '生成榜单图' }).click()
+  expect((await download).suggestedFilename()).toMatch(/我的红榜年度总榜.*\.png$/)
 })
 
 test('pending food can enter the private blacklist, reorder and export', async ({ page }) => {
@@ -123,14 +126,26 @@ test('pending food can enter the private blacklist, reorder and export', async (
   await page.getByRole('button', { name: '记录' }).click()
   await page.getByTestId('camera-import-input').setInputFiles(testPhoto)
   await page.getByTestId('food-name').fill('这次真的踩雷了')
-  await page.getByTestId('food-note').fill('太咸，而且已经凉了')
   await page.getByTestId('confirm-entry').click()
   await page.getByTestId('view-ranking').click()
-  await page.getByRole('button', { name: '送进黑榜这次真的踩雷了' }).click()
-  await page.getByTestId('period-blacklist').click()
-  await expect(page.getByTestId('blacklist-ranking')).toContainText('这次真的踩雷了')
-  await expect(page.getByTestId('ranking-page')).toContainText('不是公开餐厅评分')
+  await page.getByRole('button', { name: '列入黑榜这次真的踩雷了' }).click()
+  await chooseNewUntilCeremony(page)
+  await expect(page.getByTestId('ranking-ceremony')).toContainText('最差纪录刷新')
+  await page.getByTestId('ranking-ceremony').getByRole('button', { name: '查看最新榜单' }).click()
+  await page.getByTestId('board-black').click()
+  await expect(page.getByTestId('period-ranking')).toContainText('这次真的踩雷了')
+  await expect(page.getByTestId('ranking-page')).toContainText('越靠前，越难吃')
   const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: '生成分享图' }).click()
-  expect((await download).suggestedFilename()).toMatch(/我的黑榜-人生避雷\.png$/)
+  await page.getByRole('button', { name: '生成榜单图' }).click()
+  expect((await download).suggestedFilename()).toMatch(/我的黑榜月榜.*\.png$/)
+})
+
+test('Top 10 entry receives a ceremonial personal name while retaining official context', async ({ page }) => {
+  await page.getByTestId('load-demo').click()
+  await page.getByRole('button', { name: '重新定名' }).first().click()
+  await expect(page.getByTestId('bestow-screen')).toContainText('AI STANDARD NAME')
+  await page.getByLabel('正式赐名').fill('凌晨两点救命红烧肉')
+  await page.getByRole('button', { name: '确认定名' }).click()
+  await expect(page.getByTestId('period-ranking')).toContainText('凌晨两点救命红烧肉')
+  await expect(page.getByTestId('period-ranking')).toContainText('AI标准名：红烧肉')
 })

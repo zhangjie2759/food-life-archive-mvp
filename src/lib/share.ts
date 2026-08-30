@@ -7,7 +7,7 @@ export interface RankingShareModel {
 }
 
 export function buildRankingShareModel(entries: FoodEntry[], periodLabel: string, periodKey: string): RankingShareModel {
-  const isBlacklist = periodLabel === '黑榜'
+  const isBlacklist = periodLabel.includes('黑榜')
   return {
     title: `我的${periodLabel}`,
     subtitle: isBlacklist ? `${periodKey} · 只代表我的味觉和这一次体验` : `${periodKey} · 不是最好吃，是我最想留下`,
@@ -21,6 +21,7 @@ export function buildRankingShareModel(entries: FoodEntry[], periodLabel: string
 
 export async function createRankingShareFile(entries: FoodEntry[], periodLabel: string, periodKey: string): Promise<File> {
   const model = buildRankingShareModel(entries, periodLabel, periodKey)
+  const isBlacklist = periodLabel.includes('黑榜')
   const canvas = document.createElement('canvas')
   canvas.width = 1080
   canvas.height = 1440
@@ -71,12 +72,12 @@ export async function createRankingShareFile(entries: FoodEntry[], periodLabel: 
 
   context.fillStyle = '#111111'
   context.font = '700 28px system-ui, sans-serif'
-  context.fillText('我的味觉档案', 72, 1350)
+  context.fillText('PERSONAL FOOD AUTHORITY', 72, 1350)
   context.fillStyle = '#e32323'
   context.fillRect(72, 1377, 188, 5)
   context.fillStyle = '#777777'
   context.font = '400 22px system-ui, sans-serif'
-  context.fillText(periodLabel === '黑榜' ? '不好吃，也值得被记住。' : '记录与排名，是两件不同的事。', 282, 1385)
+  context.fillText(isBlacklist ? '越靠前，越难吃。' : '越靠前，越好吃。', 282, 1385)
 
   const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error('生成排行榜图片失败。')), 'image/png'))
   return new File([blob], `我的${periodLabel}-${periodKey}.png`, { type: 'image/png', lastModified: Date.now() })

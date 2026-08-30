@@ -108,7 +108,7 @@ export function CameraCapture({ onCapture, onClose }: { onCapture: (file: File) 
     <section className="camera-screen" data-testid="camera-screen">
       <div className="camera-topbar">
         <button className="camera-icon-button" onClick={close} aria-label="关闭摄像头"><X /></button>
-        <div><strong>拍下这一餐</strong><span>照片不会离开这台设备</span></div>
+        <div><strong>提交食物证据</strong><span>拍摄后进入 AI 识别与人工核准</span></div>
         <button className="camera-icon-button" data-testid="camera-switch" onClick={() => setFacingMode((current) => current === 'environment' ? 'user' : 'environment')} disabled={status === 'starting' || status === 'capturing'} aria-label="切换前后摄像头"><RefreshCw /></button>
       </div>
       <div className="camera-viewfinder">
@@ -122,7 +122,7 @@ export function CameraCapture({ onCapture, onClose }: { onCapture: (file: File) 
         <button className="shutter" data-testid="camera-shutter" onClick={() => void takePhoto()} disabled={status !== 'ready'} aria-label="拍照">
           {status === 'capturing' ? <LoaderCircle className="spin" /> : <span />}
         </button>
-        <button className="camera-import" onClick={() => importRef.current?.click()}>摄像头不可用？从相册导入</button>
+        <button className="camera-import" onClick={() => importRef.current?.click()}>从相册上传历史照片</button>
         <input ref={importRef} data-testid="camera-import-input" className="visually-hidden" type="file" accept="image/*" onChange={(event) => void importPhoto(event.currentTarget.files?.[0])} />
       </div>
     </section>

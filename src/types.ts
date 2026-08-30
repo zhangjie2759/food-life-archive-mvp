@@ -1,13 +1,19 @@
 export type Emotion = '惊喜' | '怀念' | '满足' | '踩雷'
 export type RankStatus = 'ranking' | 'ranked' | 'pending' | 'blacklisted'
+export type RankingBoard = 'red' | 'black'
 export type ComparisonResult = 'left' | 'right' | 'tie' | 'later'
 
 export interface FoodEntry {
   id: string
   image: string
   name: string
+  aiName?: string
+  bestowedName?: string
   location: string
   cuisine: string
+  type?: string
+  foodGroup?: string
+  diet?: string
   tags: string[]
   note?: string
   emotion: Emotion
@@ -15,6 +21,9 @@ export interface FoodEntry {
   createdAt: string
   isDemo: boolean
   rankStatus: RankStatus
+  board?: RankingBoard
+  bestowedAt?: string
+  lastRankChange?: number | 'NEW'
   blacklistedAt?: string
   blacklistOrder?: number
 }
@@ -23,6 +32,7 @@ export interface RankGroup {
   id: string
   entryIds: string[]
   order: number
+  board?: RankingBoard
   createdAt: string
 }
 
@@ -47,6 +57,8 @@ export type ValidationEventType =
   | 'ranking_completed'
   | 'ranking_deferred'
   | 'ranking_viewed'
+  | 'name_bestowed'
+  | 'board_selected'
 
 export interface ValidationEvent {
   id: string
@@ -58,8 +70,12 @@ export interface ValidationEvent {
 
 export interface FoodDraftFields {
   name: string
+  aiName?: string
   location: string
   cuisine: string
+  type?: string
+  foodGroup?: string
+  diet?: string
   tags: string[]
   note?: string
   emotion: Emotion
@@ -81,6 +97,8 @@ export interface FoodDraft {
   startedAt: string
   entryId?: string
   ranking?: RankingProgress
+  targetBoard?: RankingBoard
+  providerLabel?: string
 }
 
 export interface AppSetting {
@@ -89,7 +107,7 @@ export interface AppSetting {
 }
 
 export interface AiSuggestion {
-  providerLabel: '验证版模拟识别'
+  providerLabel: string
   fields: FoodDraftFields
 }
 

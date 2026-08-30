@@ -10,18 +10,14 @@ import {
   Check,
   ChevronRight,
   Clock3,
-  Crown,
   Download,
   Frown,
-  Heart,
   Home,
   LoaderCircle,
   MapPin,
-  Medal,
   ShieldCheck,
   Share2,
   Sparkles,
-  RotateCcw,
   Trash2,
   Trophy,
   UserRound,
@@ -40,11 +36,11 @@ import { beginRanking, resolveComparison, type RankingResolution } from './lib/r
 import { aiSuggestionProvider } from './services/ai'
 import type {
   ComparisonResult,
-  Emotion,
   FoodDraft,
   FoodDraftFields,
   FoodEntry,
   RankGroup,
+  RankingBoard,
   ValidationEvent,
   ValidationEventType,
 } from './types'
@@ -109,10 +105,10 @@ function Onboarding({ onDone }: { onDone: (mode: 'demo' | 'empty') => Promise<vo
   return (
     <main className="onboarding" data-testid="onboarding">
       <div className="brand-mark"><Utensils size={28} /></div>
-      <p className="eyebrow">我的味觉档案 · 验证版</p>
-      <h1>这一生，<br />你真正爱过什么味道？</h1>
-      <p className="onboarding-copy">不是给餐厅打分。把一张张食物照片，慢慢排成只属于你的味觉人生。</p>
-      <div className="privacy-pill"><ShieldCheck size={17} />照片与内容只保存在这台设备</div>
+      <p className="eyebrow">PERSONAL FOOD AUTHORITY · 试行版</p>
+      <h1>你的口味，<br />由你正式裁定。</h1>
+      <p className="onboarding-copy">拍照、识别、比较、入榜。这里没有大众评分，只有一套只对你本人负责的红榜与黑榜。</p>
+      <div className="privacy-pill"><ShieldCheck size={17} />档案保存在本机；启用 AI 时仅上传待识别图片</div>
       {error && <ErrorBanner message={error} onDismiss={() => setError('')} />}
       <div className="onboarding-actions">
         <button className="button primary" data-testid="load-demo" disabled={Boolean(busy)} onClick={() => choose('demo')}>
@@ -147,11 +143,11 @@ function RecordHome({ draft, entries, onStart, onOpenCamera, onFile, onResume, o
   }, [onFile])
   return (
     <section>
-      <PageHeader eyebrow="今天的味道" title="留下一餐，留下当时的你" description="打开摄像头拍下这一餐，其余信息可以稍后慢慢补。" />
+      <PageHeader eyebrow="NEW EVIDENCE" title="提交一份食物证据" description="直接拍照，或从相册调取历史照片；AI 只负责识别与分类。" />
       <button className="capture-card" onClick={() => { onStart(); onOpenCamera() }} data-testid="start-record">
         <span className="capture-icon"><Camera size={30} /></span>
-        <strong>打开摄像头拍照</strong>
-        <span>实时取景，拍下后在设备内压缩为 WebP</span>
+        <strong>打开摄像头</strong>
+        <span>实时取景 · 拍摄后进入 AI 识别</span>
         <ChevronRight size={20} />
       </button>
       <input
@@ -162,8 +158,8 @@ function RecordHome({ draft, entries, onStart, onOpenCamera, onFile, onResume, o
         onChange={(event) => onFile(event.currentTarget.files?.[0])}
         aria-label="选择美食照片"
       />
-      <button className="text-button import-fallback" onClick={() => { onStart(); fileRef.current?.click() }}>摄像头不可用？从相册导入</button>
-      <p className="input-help">相册仅作为备用；照片不会上传。</p>
+      <button className="button secondary import-primary" onClick={() => { onStart(); fileRef.current?.click() }}>从相册上传历史照片</button>
+      <p className="input-help">支持拍照与已有照片；个人排名不会交给 AI。</p>
 
       {draft && (
         <article className="resume-card" data-testid="draft-resume">
@@ -180,13 +176,13 @@ function RecordHome({ draft, entries, onStart, onOpenCamera, onFile, onResume, o
       )}
 
       <div className="mini-stats">
-        <div><span>{entries.length}</span><small>份味觉记忆</small></div>
-        <div><span>{entries.filter((entry) => entry.rankStatus === 'ranked').length}</span><small>已进入人生榜</small></div>
+        <div><span>{entries.length}</span><small>份在册记录</small></div>
+        <div><span>{entries.filter((entry) => entry.rankStatus === 'ranked').length}</span><small>份正式裁定</small></div>
       </div>
 
       <aside className="truth-card">
         <Sparkles size={19} />
-        <div><strong>关于“AI”</strong><p>当前使用验证版模拟建议，目的是验证流程，不代表已经完成真实食物识别。</p></div>
+        <div><strong>AI 职责边界</strong><p>AI 只识别标准名称与客观分类；红榜或黑榜、排名与赐名始终由你决定。</p></div>
       </aside>
     </section>
   )
@@ -211,25 +207,25 @@ function SuggestionForm({ draft, busy, onChange, onBack, onConfirm }: {
     <section data-testid="suggestion-form">
       <button className="back-button" onClick={onBack}><ArrowLeft size={19} />返回</button>
       <div className="photo-hero compact"><img src={draft.image} alt="本次记录的美食" /></div>
-      <div className="mock-badge"><Sparkles size={16} />验证版 AI 建议 · 请由你确认</div>
-      <PageHeader eyebrow="快速记录" title="AI 先起草，你只需改对" description="这一刻只记录。吃完以后，再回来复判它的位置。" />
+      <div className="mock-badge"><Sparkles size={16} />{draft.providerLabel || 'AI 识别结果'} · 请核准</div>
+      <PageHeader eyebrow="IDENTIFICATION REPORT" title={<>识别为：<span>{fields.name}</span></>} description="AI 负责降低录入成本，不替你判断好吃或难吃。" />
       <div className="quick-form">
-        <label>菜名<input data-testid="food-name" value={fields.name} onChange={(event) => update('name', event.target.value)} /></label>
-        <label>一句备注<textarea data-testid="food-note" value={fields.note ?? ''} onChange={(event) => update('note', event.target.value)} placeholder="例如：雨天第一口，突然想起小时候" /></label>
-        <label>标签<input value={fields.tags.join('、')} onChange={(event) => update('tags', event.target.value.split(/[、,，]/).map((tag) => tag.trim()).filter(Boolean))} /></label>
-        <p className="ai-experiment-note"><Sparkles size={15} />首版只验证 AI 对命名、备注和标签是否真的省时间；照片仍不会上传。</p>
+        <label>标准名称<input data-testid="food-name" value={fields.name} onChange={(event) => { update('name', event.target.value); update('aiName', event.target.value) }} /></label>
+        <div className="classification-grid">
+          <label>菜系<input value={fields.cuisine} onChange={(event) => update('cuisine', event.target.value)} /></label>
+          <label>类型<input data-testid="food-type" value={fields.type ?? ''} onChange={(event) => update('type', event.target.value)} /></label>
+          <label>食物类别<input data-testid="food-group" value={fields.foodGroup ?? ''} onChange={(event) => update('foodGroup', event.target.value)} /></label>
+          <label>食材属性<input data-testid="food-diet" value={fields.diet ?? ''} onChange={(event) => update('diet', event.target.value)} /></label>
+        </div>
+        <p className="ai-experiment-note"><Sparkles size={15} />{draft.providerLabel?.includes('Gemini') ? '照片已通过本机代理发送给 Gemini 识别；App 不保存云端副本。' : '当前线上版本仍使用模拟分类；接入安全后端后切换为 Gemini。'}</p>
       </div>
       <details className="optional-fields">
-        <summary>补充地点、菜系与感受</summary>
+        <summary>补充地点、日期和备注</summary>
         <div className="form-grid">
           <label>地点<input value={fields.location} onChange={(event) => update('location', event.target.value)} /></label>
-          <label>菜系<input value={fields.cuisine} onChange={(event) => update('cuisine', event.target.value)} /></label>
-          <label>当时的感受
-            <select value={fields.emotion} onChange={(event) => update('emotion', event.target.value as Emotion)}>
-              {(['惊喜', '怀念', '满足', '踩雷'] as Emotion[]).map((emotion) => <option key={emotion}>{emotion}</option>)}
-            </select>
-          </label>
           <label>发生日期<input type="date" value={fields.occurredAt} onChange={(event) => update('occurredAt', event.target.value)} /></label>
+          <label>备注<textarea data-testid="food-note" value={fields.note ?? ''} onChange={(event) => update('note', event.target.value)} placeholder="可选，不影响标准分类" /></label>
+          <label>标签<input value={fields.tags.join('、')} onChange={(event) => update('tags', event.target.value.split(/[、,，]/).map((tag) => tag.trim()).filter(Boolean))} /></label>
         </div>
       </details>
       <button className="button primary sticky-action" data-testid="confirm-entry" disabled={busy || !fields.name.trim()} onClick={() => onConfirm(fields)}>
@@ -246,6 +242,7 @@ function ComparisonView({ draft, anchor, busy, onDecision }: {
   onDecision: (result: ComparisonResult) => void
 }) {
   const round = (draft.ranking?.round ?? 0) + 1
+  const isBlack = draft.targetBoard === 'black'
   return (
     <section className="comparison" data-testid="comparison-view">
       <div className="comparison-topline">
@@ -253,18 +250,18 @@ function ComparisonView({ draft, anchor, busy, onDecision }: {
         <span>最多 4 次</span>
       </div>
       <div className="progress-track"><span style={{ width: `${round * 25}%` }} /></div>
-      <PageHeader eyebrow="吃完后的复判" title="如果只能留下一道，你选谁？" description="现在用完整感受决定；之后仍然可以手动调整顺位。" />
+      <PageHeader eyebrow={isBlack ? 'BLACK LIST VERDICT' : 'RED LIST VERDICT'} title={isBlack ? '哪一道更难吃？' : '哪一道更好吃？'} description="不打分，只做一次明确比较；排名之后仍可调整。" />
       <div className="duel-grid">
         <button disabled={busy} className="food-choice" data-testid="choose-new" onClick={() => onDecision('left')}>
           <img src={draft.image} alt={draft.fields.name} />
-          <span className="choice-label">刚记录的</span>
+          <span className="choice-label">待裁定</span>
           <strong>{draft.fields.name}</strong>
           <small>{draft.fields.location}</small>
         </button>
         <div className="versus">VS</div>
         <button disabled={busy} className="food-choice" data-testid="choose-anchor" onClick={() => onDecision('right')}>
           <img src={anchor.image} alt={anchor.name} />
-          <span className="choice-label old">榜单里的</span>
+          <span className="choice-label old">现有记录</span>
           <strong>{anchor.name}</strong>
           <small>{anchor.location}</small>
         </button>
@@ -287,11 +284,11 @@ function CompletionCard({ entry, position, pending, onRanking, onAgain }: {
 }) {
   return (
     <section className="completion" data-testid="completion-card">
-      <div className="celebration"><Heart fill="currentColor" /></div>
-      <p className="eyebrow">{pending ? '快速记录完成' : '复判完成'}</p>
-      <h1>{pending ? '先记录。吃完，再决定它的位置。' : `它现在排在第 ${position} 位`}</h1>
+      <div className="celebration"><Check /></div>
+      <p className="eyebrow">{pending ? 'EVIDENCE REGISTERED' : 'VERDICT COMPLETE'}</p>
+      <h1>{pending ? '记录在册。等待正式裁定。' : `当前顺位 NO.${String(position ?? 0).padStart(2, '0')}`}</h1>
       <div className="completion-food"><img src={entry.image} alt={entry.name} /><strong>{entry.name}</strong><span>{entry.location}</span></div>
-      <p>{pending ? '它已经安全保存，待你吃完后再进入复判。记录和排名，不必发生在同一刻。' : '顺位随时可以继续调整，榜单会和你的味觉一起变化。'}</p>
+      <p>{pending ? '照片和分类已经保存。吃完后，再决定列入红榜或黑榜。' : '本次排名已经生效；顺位仍可随时复核。'}</p>
       <button className="button primary" data-testid="view-ranking" onClick={onRanking}>{pending ? '回到榜单' : '查看最新榜单'}</button>
       <button className="button secondary" onClick={onAgain}>打开摄像头，再记一道</button>
     </section>
@@ -302,8 +299,8 @@ function ArchivePage({ entries, onDelete }: { entries: FoodEntry[]; onDelete: (e
   const sorted = [...entries].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   return (
     <section>
-      <PageHeader eyebrow="我的档案" title="味道会把那一天带回来" description={`${entries.length} 份只保存在本机的记录`} />
-      {sorted.length === 0 ? <EmptyState icon={Archive} title="还没有味觉档案" body="从一张今天的食物照片开始。" /> : (
+      <PageHeader eyebrow="EVIDENCE ARCHIVE" title="在册食物档案" description={`${entries.length} 份标准化记录`} />
+      {sorted.length === 0 ? <EmptyState icon={Archive} title="还没有在册档案" body="提交第一张食物照片，建立标准记录。" /> : (
         <div className="timeline" data-testid="archive-list">
           {sorted.map((entry) => (
             <article className="timeline-card" key={entry.id}>
@@ -324,108 +321,135 @@ function ArchivePage({ entries, onDelete }: { entries: FoodEntry[]; onDelete: (e
   )
 }
 
-function RankingPage({ entries, groups, onResume, onBlacklist, onMove, onMoveBlacklist, onRestoreBlacklist, onShare }: {
+function RankingPage({ entries, groups, onResume, onMove, onBestow, onShare }: {
   entries: FoodEntry[]
   groups: RankGroup[]
-  onResume: (entry: FoodEntry) => void
-  onBlacklist: (entry: FoodEntry) => void
-  onMove: (entryId: string, targetEntryId?: string) => void
-  onMoveBlacklist: (entryId: string, targetEntryId?: string) => void
-  onRestoreBlacklist: (entry: FoodEntry) => void
+  onResume: (entry: FoodEntry, board: RankingBoard) => void
+  onMove: (board: RankingBoard, entryId: string, targetEntryId?: string) => void
+  onBestow: (entry: FoodEntry, rank: number) => void
   onShare: (entries: FoodEntry[], label: string, key: string) => void
 }) {
   const now = new Date()
   const currentMonth = now.toISOString().slice(0, 7)
   const currentYear = String(now.getFullYear())
-  const [period, setPeriod] = useState<'month' | 'year' | 'blacklist'>('month')
+  const [board, setBoard] = useState<RankingBoard>('red')
+  const [period, setPeriod] = useState<'month' | 'year' | 'life'>('month')
   const [month, setMonth] = useState(currentMonth)
   const years = useMemo(() => [...new Set([currentYear, ...entries.map((entry) => entry.occurredAt.slice(0, 4))])].sort((a, b) => b.localeCompare(a)), [currentYear, entries])
   const [year, setYear] = useState(currentYear)
-  const periodKey = period === 'month' ? month : period === 'year' ? year : '人生避雷'
-  const periodLabel = period === 'month' ? '月榜' : period === 'year' ? '年榜' : '黑榜'
+  const [filter, setFilter] = useState('全部')
+  const periodKey = period === 'month' ? month : period === 'year' ? year : 'ALL TIME'
+  const periodLabel = period === 'month' ? '月榜' : period === 'year' ? '年度总榜' : '人生榜'
+  const boardLabel = board === 'red' ? '红榜' : '黑榜'
   const byId = useMemo(() => new Map(entries.map((entry) => [entry.id, entry])), [entries])
-  const allRanked = groups.flatMap((group) => group.entryIds.map((id) => ({ entry: byId.get(id), groupId: group.id }))).filter((item): item is { entry: FoodEntry; groupId: string } => Boolean(item.entry))
-  const ranked = allRanked.filter(({ entry }) => entry.occurredAt.startsWith(periodKey)).slice(0, 10)
-  const pending = entries.filter((entry) => entry.rankStatus === 'pending' && entry.occurredAt.startsWith(periodKey)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  const blacklisted = entries.filter((entry) => entry.rankStatus === 'blacklisted').sort((a, b) => (a.blacklistOrder ?? Number.MAX_SAFE_INTEGER) - (b.blacklistOrder ?? Number.MAX_SAFE_INTEGER) || (b.blacklistedAt ?? b.createdAt).localeCompare(a.blacklistedAt ?? a.createdAt))
-  const sharedEntries = period === 'blacklist' ? blacklisted : ranked.map(({ entry }) => entry)
+  const boardGroups = groups.filter((group) => (group.board ?? 'red') === board).sort((a, b) => a.order - b.order)
+  const allRanked = boardGroups.flatMap((group, globalIndex) => group.entryIds.map((id) => ({ entry: byId.get(id), groupId: group.id, globalRank: globalIndex + 1 }))).filter((item): item is { entry: FoodEntry; groupId: string; globalRank: number } => Boolean(item.entry))
+  const periodRanked = allRanked.filter(({ entry }) => period === 'life' || entry.occurredAt.startsWith(periodKey))
+  const filters = ['全部', ...new Set(periodRanked.flatMap(({ entry }) => [entry.cuisine, entry.type, entry.foodGroup, entry.diet].filter((value): value is string => Boolean(value))))]
+  const ranked = periodRanked.filter(({ entry }) => filter === '全部' || [entry.cuisine, entry.type, entry.foodGroup, entry.diet].includes(filter))
+  const pending = entries.filter((entry) => entry.rankStatus === 'pending' && (period === 'life' || entry.occurredAt.startsWith(periodKey))).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const first = ranked[0]?.entry
   return (
-    <section data-testid="ranking-page">
-      <PageHeader
-        eyebrow={period === 'blacklist' ? '私人吐槽区' : '我的榜单'}
-        title={period === 'blacklist' ? <>不好吃，<span>也值得被记住</span></> : <>不是最好吃，<span>是我最想留下</span></>}
-        description={period === 'blacklist' ? '只代表我的味觉和这一次体验，不是公开餐厅评分。' : '先快速记录。吃完以后再复判，并且随时调整顺位。'}
-      />
+    <section data-testid="ranking-page" className={`editorial-ranking board-${board}`}>
+      <header className="ranking-masthead">
+        <div><span>{period === 'month' ? month.replace('-', ' / ') : period === 'year' ? year : 'LIFETIME'}</span><small>PERSONAL FOOD AUTHORITY</small></div>
+        <b>PF—01</b>
+      </header>
+      <div className="board-switch" role="tablist" aria-label="红黑榜切换">
+        <button data-testid="board-red" className={board === 'red' ? 'active' : ''} onClick={() => { setBoard('red'); setFilter('全部') }}><span>RED LIST</span>红榜</button>
+        <button data-testid="board-black" className={board === 'black' ? 'active' : ''} onClick={() => { setBoard('black'); setFilter('全部') }}><span>BLACK LIST</span>黑榜</button>
+      </div>
+      <p className="board-definition">{board === 'red' ? '越靠前，越好吃。' : '越靠前，越难吃。只代表我的个人裁定。'}</p>
       <div className="period-tabs" role="tablist" aria-label="榜单周期">
         <button data-testid="period-month" className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>月榜</button>
-        <button data-testid="period-year" className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>年榜</button>
-        <button data-testid="period-blacklist" className={period === 'blacklist' ? 'active blacklist-tab' : 'blacklist-tab'} onClick={() => setPeriod('blacklist')}>黑榜</button>
+        <button data-testid="period-year" className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>年度</button>
+        <button data-testid="period-life" className={period === 'life' ? 'active' : ''} onClick={() => setPeriod('life')}>人生</button>
       </div>
       <div className="period-toolbar">
         {period === 'month' ? <input aria-label="选择月份" type="month" value={month} onChange={(event) => setMonth(event.target.value || currentMonth)} /> : period === 'year' ? (
           <select aria-label="选择年份" value={year} onChange={(event) => setYear(event.target.value)}>{years.map((item) => <option key={item}>{item}</option>)}</select>
-        ) : <p className="blacklist-warning">私人避雷 · 可随时移出</p>}
-        <button className="share-ranking" disabled={!sharedEntries.length} onClick={() => onShare(sharedEntries, periodLabel, periodKey.replace('-', '.'))}><Share2 size={17} />生成分享图</button>
+        ) : <p className="blacklist-warning">长期总档案</p>}
+        <button className="share-ranking" disabled={!ranked.length} onClick={() => onShare(ranked.slice(0, 10).map(({ entry }) => entry), `${boardLabel}${periodLabel}`, periodKey.replace('-', '.'))}><Share2 size={17} />生成榜单图</button>
       </div>
 
-      {period !== 'blacklist' && pending.length > 0 && (
+      {filters.length > 1 && <div className="ranking-filters" aria-label="分类筛选">{filters.map((item) => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div>}
+
+      {pending.length > 0 && (
         <div className="review-queue" data-testid="pending-list">
-          <div><p className="eyebrow">吃完再判断</p><h2>{pending.length} 道味道等待复判</h2></div>
+          <div><p className="eyebrow">AWAITING VERDICT</p><h2>{pending.length} 份记录等待裁定</h2></div>
           {pending.map((entry) => (
             <article key={entry.id} className="review-card">
               <img src={entry.image} alt={entry.name} />
-              <span><strong>{entry.name}</strong><small>{entry.note || '现在凭完整感受，决定它的位置'}</small></span>
+              <span><strong>{entry.name}</strong><small>{entry.aiName || entry.foodGroup || '待完成分类'}</small></span>
               <div className="review-actions">
-                <button data-testid={`review-${entry.id}`} onClick={() => onResume(entry)} aria-label={`开始复判${entry.name}`}>开始复判</button>
-                <button className="blacklist-action" data-testid={`blacklist-${entry.id}`} onClick={() => onBlacklist(entry)} aria-label={`送进黑榜${entry.name}`}>送进黑榜</button>
+                <button data-testid={`review-red-${entry.id}`} onClick={() => onResume(entry, 'red')} aria-label={`列入红榜${entry.name}`}>列入红榜</button>
+                <button className="blacklist-action" data-testid={`review-black-${entry.id}`} onClick={() => onResume(entry, 'black')} aria-label={`列入黑榜${entry.name}`}>列入黑榜</button>
               </div>
             </article>
           ))}
         </div>
       )}
 
-      {period === 'blacklist' ? (
-        <div className="blacklist-panel">
-          <div className="blacklist-hero"><Frown size={23} /><div><small>此刻最想吐槽</small><strong>{blacklisted[0]?.name ?? '黑榜还是空的'}</strong></div></div>
-          {blacklisted.length === 0 ? <EmptyState icon={Frown} title="还没有踩雷记录" body="吃完后，把不想再遇见的味道送进这里。" /> : (
-            <div className="blacklist-list" data-testid="blacklist-ranking">
-              {blacklisted.map((entry, index) => (
-                <article className="blacklist-row" key={entry.id}>
-                  <span className="blacklist-number">{String(index + 1).padStart(2, '0')}</span>
-                  <img src={entry.image} alt={entry.name} />
-                  <div className="blacklist-copy"><strong>{entry.name}</strong><small>{entry.note || entry.tags.join(' · ') || '这次真的不合口味'}</small></div>
-                  <div className="blacklist-actions">
-                    <button disabled={index === 0} onClick={() => onMoveBlacklist(entry.id, blacklisted[index - 1]?.id)} aria-label={`上移黑榜${entry.name}`}><ArrowUp /></button>
-                    <button disabled={index === blacklisted.length - 1} onClick={() => onMoveBlacklist(entry.id, blacklisted[index + 1]?.id)} aria-label={`下移黑榜${entry.name}`}><ArrowDown /></button>
-                    <button className="restore-blacklist" onClick={() => onRestoreBlacklist(entry)} aria-label={`移出黑榜${entry.name}`}><RotateCcw /></button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : <>
-        <div className="rank-hero">
-          <Crown size={22} />
-          <div><small>此刻的{periodLabel}第一</small><strong>{ranked[0]?.entry.name ?? '等待完成复判'}</strong></div>
-        </div>
-      {ranked.length === 0 ? <EmptyState icon={Trophy} title={`${periodLabel}还是空的`} body="先记录，吃完后完成一次复判。" /> : (
-        <div className="rank-list" data-testid="period-ranking">
-          {ranked.map(({ entry }, index) => {
+      <div className={`rank-hero official ${board === 'black' ? 'black' : ''}`}>
+        <span className="leader-code">NO.01</span>
+        <div><small>{board === 'red' ? `${periodLabel}榜首` : `${periodLabel}最差纪录`}</small><strong>{first?.bestowedName || first?.name || '等待首次裁定'}</strong></div>
+      </div>
+      {ranked.length === 0 ? <EmptyState icon={board === 'red' ? Trophy : Frown} title={`${boardLabel}${periodLabel}尚未建立`} body="先记录，吃完后完成一次正式裁定。" /> : (
+        <div className={`rank-list official-list ${board === 'black' ? 'black' : ''}`} data-testid="period-ranking">
+          {ranked.map(({ entry, globalRank }, index) => {
             const rank = index + 1
-            return <article key={entry.id} className={`rank-row rank-${rank}`}>
-              <span className="rank-number">{rank <= 3 ? <Medal size={20} /> : rank}</span>
-              <img src={entry.image} alt={entry.name} />
-              <div><strong>{entry.name}</strong><small>{entry.note || `${entry.location} · ${entry.emotion}`}</small></div>
+            const displayName = entry.bestowedName || entry.name
+            const change = entry.lastRankChange === 'NEW' ? 'NEW' : typeof entry.lastRankChange === 'number' && entry.lastRankChange !== 0 ? `${entry.lastRankChange > 0 ? '↑' : '↓'}${Math.abs(entry.lastRankChange)}` : '—'
+            return <article key={entry.id} className={`rank-row official-row rank-${rank}`}>
+              <span className="rank-number">{String(rank).padStart(2, '0')}</span>
+              <img src={entry.image} alt={displayName} />
+              <div className="rank-copy"><strong>{displayName}</strong><small>{entry.aiName && entry.aiName !== displayName ? `AI标准名：${entry.aiName}` : [entry.cuisine, entry.foodGroup, entry.diet].filter(Boolean).join(' / ')}</small>{globalRank <= 10 && <button className="bestow-button" onClick={() => onBestow(entry, globalRank)}>{entry.bestowedName ? '重新定名' : 'TOP 10 · 赐名'}</button>}</div>
+              <span className={`rank-change ${change === 'NEW' || change.startsWith('↑') ? 'up' : ''}`}>{change}</span>
               <div className="rank-adjust">
-                <button disabled={index === 0} onClick={() => onMove(entry.id, ranked[index - 1]?.entry.id)} aria-label={`上移${entry.name}`}><ArrowUp /></button>
-                <button disabled={index === ranked.length - 1} onClick={() => onMove(entry.id, ranked[index + 1]?.entry.id)} aria-label={`下移${entry.name}`}><ArrowDown /></button>
+                <button disabled={index === 0} onClick={() => onMove(board, entry.id, ranked[index - 1]?.entry.id)} aria-label={`上移${entry.name}`}><ArrowUp /></button>
+                <button disabled={index === ranked.length - 1} onClick={() => onMove(board, entry.id, ranked[index + 1]?.entry.id)} aria-label={`下移${entry.name}`}><ArrowDown /></button>
               </div>
             </article>
           })}
         </div>
-      )}</>}
+      )}
     </section>
+  )
+}
+
+function BestowCeremony({ entry, rank, onClose, onConfirm }: {
+  entry: FoodEntry
+  rank: number
+  onClose: () => void
+  onConfirm: (name: string) => void
+}) {
+  const [name, setName] = useState(entry.bestowedName || '')
+  return (
+    <section className="bestow-screen" data-testid="bestow-screen">
+      <button className="bestow-close" onClick={onClose} aria-label="关闭赐名"><X /></button>
+      <div className="bestow-index">TOP 10 / NO.{String(rank).padStart(2, '0')}</div>
+      <img src={entry.image} alt={entry.aiName || entry.name} />
+      <p className="bestow-standard">AI STANDARD NAME<br /><strong>{entry.aiName || entry.name}</strong></p>
+      <div className="bestow-rule" />
+      <label>正式赐名<input autoFocus value={name} maxLength={24} onChange={(event) => setName(event.target.value)} placeholder="例如：凌晨两点救命牛肉面" /></label>
+      <button className="bestow-confirm" disabled={!name.trim()} onClick={() => onConfirm(name.trim())}>确认定名</button>
+      <small>{new Date().toISOString().slice(0, 10)} · PERSONAL FOOD AUTHORITY</small>
+    </section>
+  )
+}
+
+function RankingCeremony({ board, rank, name, onClose }: { board: RankingBoard; rank: number; name: string; onClose: () => void }) {
+  const headline = rank === 1 ? (board === 'red' ? '榜首易主' : '最差纪录刷新') : rank <= 3 ? `正式进入 TOP ${rank}` : rank <= 10 ? '正式进入 TOP 10' : '排名已改写'
+  return (
+    <div className={`ranking-ceremony ${board}`} data-testid="ranking-ceremony" role="dialog" aria-modal="true">
+      <div className="ceremony-rule" />
+      <span>{board === 'red' ? 'RED LIST VERDICT' : 'BLACK LIST VERDICT'}</span>
+      <strong className="ceremony-rank">{String(rank).padStart(2, '0')}</strong>
+      <h1>{headline}</h1>
+      <p>{name}</p>
+      <div className="verdict-seal">{board === 'red' ? '入榜' : '定案'}</div>
+      <button onClick={onClose}>查看最新榜单</button>
+    </div>
   )
 }
 
@@ -447,7 +471,7 @@ function ProfilePage({ entries, events, onExport, onClear }: {
   const medianComparisons = median(completed.flatMap((event) => event.comparisonCount === undefined ? [] : [event.comparisonCount]))
   return (
     <section>
-      <PageHeader eyebrow="只属于我的数据" title="我的味觉 DNA" description="它描述你的记录，不定义你的品味。" />
+      <PageHeader eyebrow="CLASSIFICATION REPORT" title="个人样本构成" description="只统计在册记录，不提供大众口味结论。" />
       <div className="dna-card">
         {dna.length === 0 ? <p>记录几道味道后，这里会长出你的味觉组成。</p> : dna.map((item, index) => (
           <div className="dna-row" key={item.name}>
@@ -456,7 +480,7 @@ function ProfilePage({ entries, events, onExport, onClear }: {
           </div>
         ))}
       </div>
-      {dna[0] && <p className="dna-quote">“你的生命里，已经有 {dna[0].percent}% 的{dna[0].name}。”</p>}
+      {dna[0] && <p className="dna-quote">当前样本中，{dna[0].name}占比 {dna[0].percent}%</p>}
 
       <div className="section-heading"><div><p className="eyebrow">验证仪表</p><h2>这版是否足够轻？</h2></div></div>
       <div className="metric-grid">
@@ -467,11 +491,11 @@ function ProfilePage({ entries, events, onExport, onClear }: {
       <p className="fine-print">这些只是本机验证数据，不代表产品假设已经成立。</p>
 
       <div className="settings-list">
-        <div className="privacy-panel"><ShieldCheck /><div><strong>Local-only</strong><p>照片、菜名、地点和标签只存于此设备的 IndexedDB。没有账号、云同步或在线分析。</p></div></div>
+        <div className="privacy-panel"><ShieldCheck /><div><strong>本机档案</strong><p>档案与排名保存在此设备的 IndexedDB；启用真实 AI 时，仅将当前压缩图片发送给识别服务。</p></div></div>
         <button className="settings-button" onClick={onExport}><Download /><span><strong>导出匿名验证数据</strong><small>只含事件、时间与比较次数</small></span><ChevronRight /></button>
         <button className="settings-button danger" onClick={onClear}><Trash2 /><span><strong>清空这台设备的数据</strong><small>包括照片、榜单和演示档案</small></span><ChevronRight /></button>
       </div>
-      <div className="prototype-note"><Sparkles /><p><strong>验证版模拟识别</strong><br />尚未接入真实 AI，也不会把照片发往外部服务。</p></div>
+      <div className="prototype-note"><Sparkles /><p><strong>AI 识别边界</strong><br />本地开发已接通 Gemini；公开 Pages 在安全后端部署前继续明确使用模拟识别。AI 不参与红黑榜裁定。</p></div>
     </section>
   )
 }
@@ -505,6 +529,7 @@ function PwaStatus() {
 }
 
 export default function App() {
+  const realAiEnabled = import.meta.env.VITE_USE_REAL_AI === 'true'
   const onboarding = useLiveQuery(async () => Boolean((await db.settings.get('onboardingCompleted'))?.value), [])
   const entries = useLiveQuery(() => db.entries.toArray(), []) ?? []
   const groups = useLiveQuery(() => db.rankGroups.orderBy('order').toArray(), []) ?? []
@@ -517,6 +542,8 @@ export default function App() {
   const [completion, setCompletion] = useState<{ entryId: string; position?: number; pending?: boolean } | null>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [notice, setNotice] = useState('')
+  const [bestowTarget, setBestowTarget] = useState<{ entry: FoodEntry; rank: number } | null>(null)
+  const [ceremony, setCeremony] = useState<{ board: RankingBoard; rank: number; name: string } | null>(null)
   const recordStartedAt = useRef<string | null>(null)
 
   useEffect(() => {
@@ -566,8 +593,10 @@ export default function App() {
     try {
       await addEvent('photo_selected')
       const image = await compressImageToWebP(file)
-      const suggestion = await aiSuggestionProvider.analyze(file)
-      await db.drafts.put({ id: 'active', step: 'form', image, fields: suggestion.fields, startedAt })
+      const compressedBlob = await (await fetch(image)).blob()
+      const compressedFile = new File([compressedBlob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp', lastModified: Date.now() })
+      const suggestion = await aiSuggestionProvider.analyze(compressedFile)
+      await db.drafts.put({ id: 'active', step: 'form', image, fields: suggestion.fields, startedAt, providerLabel: suggestion.providerLabel })
       await addEvent('suggestion_ready')
       setFlowOpen(true)
     } catch (reason) {
@@ -589,9 +618,9 @@ export default function App() {
     }
   }
 
-  const applyPlacement = async (entryId: string, resolution: Exclude<RankingResolution, { kind: 'continue' }>) => {
+  const applyPlacement = async (entryId: string, resolution: Exclude<RankingResolution, { kind: 'continue' }>, board: RankingBoard) => {
     if (resolution.kind === 'pending') {
-      await db.entries.update(entryId, { rankStatus: 'pending' })
+      await db.entries.update(entryId, { rankStatus: 'pending', board: undefined })
       await db.drafts.delete('active')
       await addEvent('ranking_deferred', { comparisonCount: resolution.comparisons })
       setCompletion({ entryId, pending: true })
@@ -602,15 +631,17 @@ export default function App() {
       if (!group) throw new Error('排名已变化，请重新开始比较。')
       await db.rankGroups.update(group.id, { entryIds: [...group.entryIds, entryId] })
     } else {
-      const current = await db.rankGroups.orderBy('order').toArray()
+      const current = (await db.rankGroups.toArray()).filter((group) => (group.board ?? 'red') === board).sort((a, b) => a.order - b.order)
       await db.rankGroups.bulkPut(current.filter((group) => group.order >= resolution.index).map((group) => ({ ...group, order: group.order + 1 })))
-      await db.rankGroups.add({ id: createId('rank'), entryIds: [entryId], order: resolution.index, createdAt: new Date().toISOString() })
+      await db.rankGroups.add({ id: createId('rank'), entryIds: [entryId], board, order: resolution.index, createdAt: new Date().toISOString() })
     }
-    await db.entries.update(entryId, { rankStatus: 'ranked' })
+    await db.entries.update(entryId, { rankStatus: 'ranked', board, lastRankChange: 'NEW' })
     await db.drafts.delete('active')
-    const rankedGroups = await db.rankGroups.orderBy('order').toArray()
+    const rankedGroups = (await db.rankGroups.toArray()).filter((group) => (group.board ?? 'red') === board).sort((a, b) => a.order - b.order)
     const position = rankedGroups.findIndex((group) => group.entryIds.includes(entryId)) + 1
     await addEvent('ranking_completed', { comparisonCount: resolution.comparisons })
+    const placed = await db.entries.get(entryId)
+    setCeremony({ board, rank: position, name: placed?.bestowedName || placed?.name || '新记录' })
     setCompletion({ entryId, position })
   }
 
@@ -649,7 +680,9 @@ export default function App() {
 
   const handleComparison = async (result: ComparisonResult) => {
     if (!draft?.entryId || !draft.ranking?.anchorGroupId) return
-    const anchorGroup = groups.find((group) => group.id === draft.ranking?.anchorGroupId)
+    const board = draft.targetBoard ?? 'red'
+    const activeGroups = groups.filter((group) => (group.board ?? 'red') === board).sort((a, b) => a.order - b.order)
+    const anchorGroup = activeGroups.find((group) => group.id === draft.ranking?.anchorGroupId)
     const anchorId = anchorGroup?.entryIds[0]
     if (!anchorId) { setError('比较对象已不存在，请回到榜单重新开始。'); return }
     setBusy(true)
@@ -665,11 +698,11 @@ export default function App() {
         createdAt: new Date().toISOString(),
       })
       if (result !== 'later') await addEvent('comparison_completed')
-      const resolution = resolveComparison(draft.ranking, groups.map((group) => group.id), result)
+      const resolution = resolveComparison(draft.ranking, activeGroups.map((group) => group.id), result)
       if (resolution.kind === 'continue') {
         await db.drafts.put({ ...draft, ranking: resolution.progress })
       } else {
-        await applyPlacement(draft.entryId, resolution)
+        await applyPlacement(draft.entryId, resolution, board)
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : friendlyStorageError(reason))
@@ -678,97 +711,49 @@ export default function App() {
     }
   }
 
-  const resumePending = async (entry: FoodEntry) => {
-    const result = beginRanking(groups.map((group) => group.id))
+  const resumePending = async (entry: FoodEntry, board: RankingBoard) => {
+    const activeGroups = groups.filter((group) => (group.board ?? 'red') === board).sort((a, b) => a.order - b.order)
+    const result = beginRanking(activeGroups.map((group) => group.id))
     if (result.kind === 'continue') {
-      await db.entries.update(entry.id, { rankStatus: 'ranking' })
+      await db.entries.update(entry.id, { rankStatus: 'ranking', board })
+      await addEvent('board_selected')
       await db.drafts.put({
         id: 'active', step: 'compare', image: entry.image,
-        fields: { name: entry.name, location: entry.location, cuisine: entry.cuisine, tags: entry.tags, note: entry.note, emotion: entry.emotion, occurredAt: entry.occurredAt },
-        startedAt: new Date().toISOString(), entryId: entry.id, ranking: result.progress,
+        fields: { name: entry.name, aiName: entry.aiName, location: entry.location, cuisine: entry.cuisine, type: entry.type, foodGroup: entry.foodGroup, diet: entry.diet, tags: entry.tags, note: entry.note, emotion: entry.emotion, occurredAt: entry.occurredAt },
+        startedAt: new Date().toISOString(), entryId: entry.id, ranking: result.progress, targetBoard: board,
       })
       go('record')
       setFlowOpen(true)
     } else {
-      await applyPlacement(entry.id, result)
+      await applyPlacement(entry.id, result, board)
     }
   }
 
-  const moveRanking = async (entryId: string, targetEntryId?: string) => {
+  const moveRanking = async (board: RankingBoard, entryId: string, targetEntryId?: string) => {
     if (!targetEntryId) return
-    const source = groups.find((group) => group.entryIds.includes(entryId))
-    const target = groups.find((group) => group.entryIds.includes(targetEntryId))
+    const source = groups.find((group) => (group.board ?? 'red') === board && group.entryIds.includes(entryId))
+    const target = groups.find((group) => (group.board ?? 'red') === board && group.entryIds.includes(targetEntryId))
     if (!source || !target || source.id === target.id) return
     try {
-      await db.rankGroups.bulkPut([{ ...source, order: target.order }, { ...target, order: source.order }])
-      setNotice('顺位已调整')
-    } catch (reason) {
-      setError(friendlyStorageError(reason))
-    }
-  }
-
-  const blacklistEntry = async (entry: FoodEntry) => {
-    try {
-      await db.transaction('rw', [db.entries, db.rankGroups, db.drafts], async () => {
-        const blacklisted = await db.entries.where('rankStatus').equals('blacklisted').toArray()
-        const rankedGroups = await db.rankGroups.orderBy('order').toArray()
-        const hadRank = rankedGroups.some((group) => group.entryIds.includes(entry.id))
-        const survivors = rankedGroups
-          .map((group) => ({ ...group, entryIds: group.entryIds.filter((id) => id !== entry.id) }))
-          .filter((group) => group.entryIds.length > 0)
-          .map((group, order) => ({ ...group, order }))
-        if (hadRank) {
-          await db.rankGroups.clear()
-          await db.rankGroups.bulkPut(survivors)
-        }
-        await db.entries.put({
-          ...entry,
-          rankStatus: 'blacklisted',
-          blacklistedAt: new Date().toISOString(),
-          blacklistOrder: blacklisted.length,
-        })
-        const activeDraft = await db.drafts.get('active')
-        if (activeDraft?.entryId === entry.id) await db.drafts.delete('active')
+      const delta = source.order - target.order
+      await db.transaction('rw', [db.rankGroups, db.entries], async () => {
+        await db.rankGroups.bulkPut([{ ...source, board, order: target.order }, { ...target, board, order: source.order }])
+        await db.entries.update(entryId, { lastRankChange: delta })
+        await db.entries.update(targetEntryId, { lastRankChange: -delta })
       })
-      setFlowOpen(false)
-      setCompletion(null)
-      go('ranking')
-      setNotice('已放进私人黑榜')
+      if ('vibrate' in navigator) navigator.vibrate(18)
+      setNotice(delta > 0 ? `排名上升 ${delta} 位` : `排名下降 ${Math.abs(delta)} 位`)
     } catch (reason) {
       setError(friendlyStorageError(reason))
     }
   }
 
-  const moveBlacklist = async (entryId: string, targetEntryId?: string) => {
-    if (!targetEntryId) return
-    const blacklisted = entries.filter((entry) => entry.rankStatus === 'blacklisted').sort((a, b) => (a.blacklistOrder ?? Number.MAX_SAFE_INTEGER) - (b.blacklistOrder ?? Number.MAX_SAFE_INTEGER))
-    const sourceIndex = blacklisted.findIndex((entry) => entry.id === entryId)
-    const targetIndex = blacklisted.findIndex((entry) => entry.id === targetEntryId)
-    if (sourceIndex < 0 || targetIndex < 0) return
-    try {
-      await db.entries.bulkPut([
-        { ...blacklisted[sourceIndex], blacklistOrder: targetIndex },
-        { ...blacklisted[targetIndex], blacklistOrder: sourceIndex },
-      ])
-      setNotice('黑榜顺位已调整')
-    } catch (reason) {
-      setError(friendlyStorageError(reason))
-    }
-  }
-
-  const restoreFromBlacklist = async (entry: FoodEntry) => {
-    try {
-      const restored: FoodEntry = { ...entry, rankStatus: 'pending' }
-      delete restored.blacklistedAt
-      delete restored.blacklistOrder
-      await db.entries.put(restored)
-      const remaining = (await db.entries.where('rankStatus').equals('blacklisted').toArray())
-        .sort((a, b) => (a.blacklistOrder ?? Number.MAX_SAFE_INTEGER) - (b.blacklistOrder ?? Number.MAX_SAFE_INTEGER))
-      await db.entries.bulkPut(remaining.map((item, blacklistOrder) => ({ ...item, blacklistOrder })))
-      setNotice('已移出黑榜，回到待复判')
-    } catch (reason) {
-      setError(friendlyStorageError(reason))
-    }
+  const bestowName = async (entry: FoodEntry, name: string) => {
+    await db.entries.update(entry.id, { bestowedName: name, bestowedAt: new Date().toISOString(), name })
+    await addEvent('name_bestowed')
+    if ('vibrate' in navigator) navigator.vibrate([18, 40, 24])
+    setBestowTarget(null)
+    setNotice('名已定')
   }
 
   const shareRanking = async (rankedEntries: FoodEntry[], label: string, key: string) => {
@@ -804,14 +789,14 @@ export default function App() {
   }
 
   const clearData = async () => {
-    if (!window.confirm('确定清空这台设备上的全部味觉档案吗？此操作无法撤销。')) return
+    if (!window.confirm('确定清空这台设备上的全部评审档案吗？此操作无法撤销。')) return
     await resetAllData()
     setCompletion(null)
     setFlowOpen(false)
     go('ranking')
   }
 
-  if (onboarding === undefined) return <main className="loading-screen"><LoaderCircle className="spin" /><p>正在打开你的味觉档案…</p></main>
+  if (onboarding === undefined) return <main className="loading-screen"><LoaderCircle className="spin" /><p>正在调取个人评审档案…</p></main>
   if (!onboarding) return <Onboarding onDone={chooseOnboarding} />
 
   const completionEntry = completion ? entries.find((entry) => entry.id === completion.entryId) : undefined
@@ -836,10 +821,8 @@ export default function App() {
       entries={entries}
       groups={groups}
       onResume={resumePending}
-      onBlacklist={(entry) => void blacklistEntry(entry)}
       onMove={moveRanking}
-      onMoveBlacklist={moveBlacklist}
-      onRestoreBlacklist={(entry) => void restoreFromBlacklist(entry)}
+      onBestow={(entry, rank) => setBestowTarget({ entry, rank })}
       onShare={(rankedEntries, label, key) => void shareRanking(rankedEntries, label, key)}
     />
   } else {
@@ -849,9 +832,11 @@ export default function App() {
   return (
     <div className="app-shell">
       <PwaStatus />
+      {bestowTarget && <BestowCeremony entry={bestowTarget.entry} rank={bestowTarget.rank} onClose={() => setBestowTarget(null)} onConfirm={(name) => void bestowName(bestowTarget.entry, name)} />}
+      {ceremony && <RankingCeremony {...ceremony} onClose={() => { setCeremony(null); go('ranking') }} />}
       {notice && <div className="status-toast notice">{notice}</div>}
       {error && <ErrorBanner message={error} onDismiss={() => setError('')} />}
-      <main className="page-content">{busy && tab === 'record' && !flowOpen && <div className="processing"><LoaderCircle className="spin" /><strong>正在设备内处理照片</strong><span>随后会显示验证版模拟建议</span></div>}{content}</main>
+      <main className="page-content">{busy && tab === 'record' && !flowOpen && <div className="processing"><LoaderCircle className="spin" /><strong>正在压缩与识别照片</strong><span>{realAiEnabled ? '正在等待 Gemini 返回标准分类' : '随后会显示验证版模拟分类'}</span></div>}{content}</main>
       {!flowOpen && !completion && !cameraOpen && (
         <nav className="bottom-nav" aria-label="主要导航">
           {navItems.map((item) => {

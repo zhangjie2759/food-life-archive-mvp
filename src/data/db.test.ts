@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { db, completeOnboarding, deleteEntry, resetAllData } from './db'
+import Dexie from 'dexie'
+import { FoodArchiveDB, db, completeOnboarding, deleteEntry, resetAllData } from './db'
 import type { FoodDraft } from '../types'
 
 describe('IndexedDB persistence', () => {
@@ -24,14 +25,37 @@ describe('IndexedDB persistence', () => {
 
   it('deletes an entry and repairs group order, then clears everything', async () => {
     await completeOnboarding('demo')
-    const groupCount = await db.rankGroups.count()
     const first = await db.entries.toCollection().first()
     expect(first).toBeDefined()
     await deleteEntry(first!.id)
     expect(await db.entries.get(first!.id)).toBeUndefined()
-    expect((await db.rankGroups.orderBy('order').toArray()).map((group) => group.order)).toEqual(Array.from({ length: groupCount - 1 }, (_, order) => order))
+    const groups = await db.rankGroups.toArray()
+    const redOrders = groups.filter((group) => (group.board ?? 'red') === 'red').sort((a, b) => a.order - b.order).map((group) => group.order)
+    const blackOrders = groups.filter((group) => group.board === 'black').sort((a, b) => a.order - b.order).map((group) => group.order)
+    expect(redOrders).toEqual([0, 1, 2, 3])
+    expect(blackOrders).toEqual([0])
     await resetAllData()
     expect(await db.entries.count()).toBe(0)
     expect(await db.settings.count()).toBe(0)
+  })
+
+  it('migrates a legacy blacklisted entry into an independent black ranking', async () => {
+    const databaseName = `food-life-migration-${Date.now()}`
+    const legacy = new Dexie(databaseName)
+    legacy.version(1).stores({
+      entries: 'id, createdAt, occurredAt, isDemo, rankStatus',
+      rankGroups: 'id, order, createdAt', comparisons: 'id', drafts: 'id', events: 'id', settings: 'key',
+    })
+    await legacy.open()
+    await legacy.table('entries').put({
+      id: 'legacy-bad', image: '', name: '旧黑榜记录', location: '本地', cuisine: '测试', tags: [], emotion: '踩雷', occurredAt: '2026-08-30', createdAt: '2026-08-30T00:00:00.000Z', isDemo: false, rankStatus: 'blacklisted', blacklistOrder: 0,
+    })
+    legacy.close()
+    const upgraded = new FoodArchiveDB(databaseName)
+    await upgraded.open()
+    expect(await upgraded.entries.get('legacy-bad')).toMatchObject({ rankStatus: 'ranked', board: 'black', aiName: '旧黑榜记录' })
+    expect(await upgraded.rankGroups.where('board').equals('black').count()).toBe(1)
+    upgraded.close()
+    await Dexie.delete(databaseName)
   })
 })
