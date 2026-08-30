@@ -8,8 +8,8 @@ describe('MockAiSuggestionProvider', () => {
     const promise = new MockAiSuggestionProvider().analyze(new File(['food'], 'lunch.jpg', { type: 'image/jpeg' }))
     await vi.advanceTimersByTimeAsync(400)
     const suggestion = await promise
-    expect(suggestion.providerLabel).toBe('验证版模拟识别')
-    expect(suggestion.fields).toMatchObject({ name: expect.any(String), location: expect.any(String), cuisine: expect.any(String) })
+    expect(suggestion.providerLabel).toBe('AI 未连接 · 手动核准模式')
+    expect(suggestion.fields).toMatchObject({ name: '', location: '', cuisine: '未分类', emotion: '待确认' })
     expect(Array.isArray(suggestion.fields.tags)).toBe(true)
     expect(fetchSpy).not.toHaveBeenCalled()
     fetchSpy.mockRestore()

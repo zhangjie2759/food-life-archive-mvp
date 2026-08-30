@@ -154,7 +154,7 @@ describe('derived monthly ranking', () => {
       cuisine: '测试菜系',
       tags: ['测试'],
       emotion: '满足',
-      occurredAt: index === 10 ? `${currentMonth}-01` : '2025-01-01',
+      occurredAt: index >= 9 ? `${currentMonth}-01` : '2025-01-01',
       createdAt: new Date().toISOString(),
       isDemo: false,
       rankStatus: 'ranked',
@@ -171,6 +171,52 @@ describe('derived monthly ranking', () => {
   it('derives the month ranking from the full life ranking, not only the former Top 10', async () => {
     render(<App />)
     expect(await screen.findByTestId('period-ranking')).toHaveTextContent('人生榜外的本月新味道')
+  })
+
+  it('treats the visible month leader as NO.01 for the highest ceremony', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByLabelText('上移人生榜外的本月新味道'))
+    expect(await screen.findByTestId('ranking-ceremony')).toHaveTextContent('榜首易主')
+    expect(screen.getByTestId('ranking-ceremony')).toHaveClass('apex')
+  })
+})
+
+describe('black list rank ceremony', () => {
+  beforeEach(async () => {
+    window.location.hash = '#/ranking'
+    await resetAllData()
+    await completeOnboarding('empty')
+    const occurredAt = `${new Date().toISOString().slice(0, 7)}-01`
+    const entries: FoodEntry[] = ['还能接受的踩雷', '新晋最差纪录'].map((name, index) => ({
+      id: `black-${index}`,
+      image: 'data:image/webp;base64,dGVzdA==',
+      name,
+      location: '测试地点',
+      cuisine: '测试菜系',
+      tags: ['测试'],
+      emotion: '踩雷',
+      occurredAt,
+      createdAt: new Date().toISOString(),
+      isDemo: false,
+      rankStatus: 'ranked',
+      board: 'black',
+    }))
+    await db.entries.bulkAdd(entries)
+    await db.rankGroups.bulkAdd(entries.map((entry, order) => ({ id: `black-rank-${order}`, entryIds: [entry.id], board: 'black', order, createdAt: new Date().toISOString() })))
+  })
+  afterEach(async () => {
+    cleanup()
+    await resetAllData()
+  })
+
+  it('uses the black-list language when manual adjustment creates a new visible number one', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByTestId('board-black'))
+    await user.click(screen.getByLabelText('上移新晋最差纪录'))
+    expect(await screen.findByTestId('ranking-ceremony')).toHaveTextContent('最差纪录刷新')
+    expect(screen.getByTestId('ranking-ceremony')).toHaveClass('apex')
   })
 })
 

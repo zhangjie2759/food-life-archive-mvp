@@ -1,4 +1,4 @@
-export type Emotion = '惊喜' | '怀念' | '满足' | '踩雷'
+export type Emotion = '惊喜' | '怀念' | '满足' | '踩雷' | '待确认'
 export type RankStatus = 'ranking' | 'ranked' | 'pending' | 'blacklisted'
 export type RankingBoard = 'red' | 'black'
 export type ComparisonResult = 'left' | 'right' | 'tie' | 'later'

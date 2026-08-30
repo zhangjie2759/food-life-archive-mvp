@@ -46,6 +46,13 @@ import type {
 } from './types'
 
 type Tab = 'record' | 'archive' | 'ranking' | 'profile'
+type RankingMotion = {
+  id: number
+  board: RankingBoard
+  entryId: string
+  fromRank: number | 'NEW'
+  toRank: number
+}
 
 const navItems: Array<{ id: Tab; label: string; icon: typeof Home }> = [
   { id: 'ranking', label: '榜单', icon: Trophy },
@@ -57,6 +64,11 @@ const navItems: Array<{ id: Tab; label: string; icon: typeof Home }> = [
 function getHashTab(): Tab {
   const value = window.location.hash.replace('#/', '')
   return navItems.some((item) => item.id === value) ? value as Tab : 'ranking'
+}
+
+function triggerHaptic(pattern: number | number[]) {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+  if ('vibrate' in navigator) navigator.vibrate(pattern)
 }
 
 async function addEvent(type: ValidationEventType, details: { elapsedMs?: number; comparisonCount?: number } = {}) {
@@ -208,16 +220,16 @@ function SuggestionForm({ draft, busy, onChange, onBack, onConfirm }: {
       <button className="back-button" onClick={onBack}><ArrowLeft size={19} />返回</button>
       <div className="photo-hero compact"><img src={draft.image} alt="本次记录的美食" /></div>
       <div className="mock-badge"><Sparkles size={16} />{draft.providerLabel || 'AI 识别结果'} · 请核准</div>
-      <PageHeader eyebrow="IDENTIFICATION REPORT" title={<>识别为：<span>{fields.name}</span></>} description="AI 负责降低录入成本，不替你判断好吃或难吃。" />
+      <PageHeader eyebrow="IDENTIFICATION REPORT" title={fields.name ? <>识别为：<span>{fields.name}</span></> : <>AI 尚未识别，请核准</>} description="AI 负责降低录入成本，不替你判断好吃或难吃。" />
       <div className="quick-form">
-        <label>标准名称<input data-testid="food-name" value={fields.name} onChange={(event) => { update('name', event.target.value); update('aiName', event.target.value) }} /></label>
+        <label>标准名称<input data-testid="food-name" value={fields.name} placeholder="请输入这道食物的名称" onChange={(event) => { update('name', event.target.value); update('aiName', event.target.value) }} /></label>
         <div className="classification-grid">
           <label>菜系<input value={fields.cuisine} onChange={(event) => update('cuisine', event.target.value)} /></label>
           <label>类型<input data-testid="food-type" value={fields.type ?? ''} onChange={(event) => update('type', event.target.value)} /></label>
           <label>食物类别<input data-testid="food-group" value={fields.foodGroup ?? ''} onChange={(event) => update('foodGroup', event.target.value)} /></label>
           <label>食材属性<input data-testid="food-diet" value={fields.diet ?? ''} onChange={(event) => update('diet', event.target.value)} /></label>
         </div>
-        <p className="ai-experiment-note"><Sparkles size={15} />{draft.providerLabel?.includes('Gemini') ? '照片已通过本机代理发送给 Gemini 识别；App 不保存云端副本。' : '当前线上版本仍使用模拟分类；接入安全后端后切换为 Gemini。'}</p>
+        <p className={`ai-experiment-note ${draft.providerLabel?.includes('Gemini') ? '' : 'ai-offline'}`}><Sparkles size={15} />{draft.providerLabel?.includes('Gemini') ? '照片已通过安全代理发送给 Gemini 识别；App 不保存云端副本。' : '公网 AI 服务尚未连接；当前不会伪造识别结果，请手动核准。'}</p>
       </div>
       <details className="optional-fields">
         <summary>补充地点、日期和备注</summary>
@@ -321,11 +333,12 @@ function ArchivePage({ entries, onDelete }: { entries: FoodEntry[]; onDelete: (e
   )
 }
 
-function RankingPage({ entries, groups, onResume, onMove, onBestow, onShare }: {
+function RankingPage({ entries, groups, motion, onResume, onMove, onBestow, onShare }: {
   entries: FoodEntry[]
   groups: RankGroup[]
+  motion: RankingMotion | null
   onResume: (entry: FoodEntry, board: RankingBoard) => void
-  onMove: (board: RankingBoard, entryId: string, targetEntryId?: string) => void
+  onMove: (board: RankingBoard, entryId: string, targetEntryId: string | undefined, fromRank: number, toRank: number) => void
   onBestow: (entry: FoodEntry, rank: number) => void
   onShare: (entries: FoodEntry[], label: string, key: string) => void
 }) {
@@ -349,6 +362,8 @@ function RankingPage({ entries, groups, onResume, onMove, onBestow, onShare }: {
   const ranked = periodRanked.filter(({ entry }) => filter === '全部' || [entry.cuisine, entry.type, entry.foodGroup, entry.diet].includes(filter))
   const pending = entries.filter((entry) => entry.rankStatus === 'pending' && (period === 'life' || entry.occurredAt.startsWith(periodKey))).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const first = ranked[0]?.entry
+  const motionIsUp = motion?.fromRank === 'NEW' || (typeof motion?.fromRank === 'number' && motion.toRank < motion.fromRank)
+  const motionFromLabel = motion?.fromRank === 'NEW' ? 'NEW' : `NO.${String(motion?.fromRank ?? 0).padStart(2, '0')}`
   return (
     <section data-testid="ranking-page" className={`editorial-ranking board-${board}`}>
       <header className="ranking-masthead">
@@ -360,6 +375,13 @@ function RankingPage({ entries, groups, onResume, onMove, onBestow, onShare }: {
         <button data-testid="board-black" className={board === 'black' ? 'active' : ''} onClick={() => { setBoard('black'); setFilter('全部') }}><span>BLACK LIST</span>黑榜</button>
       </div>
       <p className="board-definition">{board === 'red' ? '越靠前，越好吃。' : '越靠前，越难吃。只代表我的个人裁定。'}</p>
+      {motion?.board === board && (
+        <div className={`rank-motion-notice ${motionIsUp ? 'up' : 'down'}`} data-testid="rank-motion" role="status">
+          <span>RANKING REVISED</span>
+          <strong>{motionFromLabel} → NO.{String(motion.toRank).padStart(2, '0')}</strong>
+          <small>{motion.toRank === 1 ? '新任榜首已经裁定' : '顺位已正式改写'}</small>
+        </div>
+      )}
       <div className="period-tabs" role="tablist" aria-label="榜单周期">
         <button data-testid="period-month" className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>月榜</button>
         <button data-testid="period-year" className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>年度</button>
@@ -400,14 +422,17 @@ function RankingPage({ entries, groups, onResume, onMove, onBestow, onShare }: {
             const rank = index + 1
             const displayName = entry.bestowedName || entry.name
             const change = entry.lastRankChange === 'NEW' ? 'NEW' : typeof entry.lastRankChange === 'number' && entry.lastRankChange !== 0 ? `${entry.lastRankChange > 0 ? '↑' : '↓'}${Math.abs(entry.lastRankChange)}` : '—'
-            return <article key={entry.id} className={`rank-row official-row rank-${rank}`}>
+            const motionClass = motion?.board === board && motion.entryId === entry.id
+              ? ` rank-motion-target ${motionIsUp ? 'moving-up' : 'moving-down'}${motion.toRank === 1 ? ' new-leader' : ''}`
+              : ''
+            return <article key={`${entry.id}-${motion?.entryId === entry.id ? motion.id : 0}`} className={`rank-row official-row rank-${rank}${motionClass}`}>
               <span className="rank-number">{String(rank).padStart(2, '0')}</span>
               <img src={entry.image} alt={displayName} />
               <div className="rank-copy"><strong>{displayName}</strong><small>{entry.aiName && entry.aiName !== displayName ? `AI标准名：${entry.aiName}` : [entry.cuisine, entry.foodGroup, entry.diet].filter(Boolean).join(' / ')}</small>{globalRank <= 10 && <button className="bestow-button" onClick={() => onBestow(entry, globalRank)}>{entry.bestowedName ? '重新定名' : 'TOP 10 · 赐名'}</button>}</div>
               <span className={`rank-change ${change === 'NEW' || change.startsWith('↑') ? 'up' : ''}`}>{change}</span>
               <div className="rank-adjust">
-                <button disabled={index === 0} onClick={() => onMove(board, entry.id, ranked[index - 1]?.entry.id)} aria-label={`上移${entry.name}`}><ArrowUp /></button>
-                <button disabled={index === ranked.length - 1} onClick={() => onMove(board, entry.id, ranked[index + 1]?.entry.id)} aria-label={`下移${entry.name}`}><ArrowDown /></button>
+                <button disabled={index === 0 || ranked[index - 1]?.groupId === ranked[index]?.groupId} onClick={() => onMove(board, entry.id, ranked[index - 1]?.entry.id, index + 1, index)} aria-label={`上移${entry.name}`}><ArrowUp /></button>
+                <button disabled={index === ranked.length - 1 || ranked[index + 1]?.groupId === ranked[index]?.groupId} onClick={() => onMove(board, entry.id, ranked[index + 1]?.entry.id, index + 1, index + 2)} aria-label={`下移${entry.name}`}><ArrowDown /></button>
               </div>
             </article>
           })}
@@ -440,15 +465,23 @@ function BestowCeremony({ entry, rank, onClose, onConfirm }: {
 
 function RankingCeremony({ board, rank, name, onClose }: { board: RankingBoard; rank: number; name: string; onClose: () => void }) {
   const headline = rank === 1 ? (board === 'red' ? '榜首易主' : '最差纪录刷新') : rank <= 3 ? `正式进入 TOP ${rank}` : rank <= 10 ? '正式进入 TOP 10' : '排名已改写'
+  const level = rank === 1 ? 'apex' : rank <= 3 ? 'podium' : rank <= 10 ? 'top-ten' : 'standard'
+  useEffect(() => {
+    triggerHaptic(rank === 1 ? [45, 55, 90, 70, 150] : rank <= 3 ? [30, 45, 70] : [22, 35, 28])
+    const handleKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [rank, onClose])
   return (
-    <div className={`ranking-ceremony ${board}`} data-testid="ranking-ceremony" role="dialog" aria-modal="true">
+    <div className={`ranking-ceremony ${board} ${level}`} data-testid="ranking-ceremony" role="dialog" aria-modal="true" aria-labelledby="ranking-ceremony-title" aria-describedby="ranking-ceremony-name">
+      {rank === 1 && <><div className="ceremony-scan" /><div className="ceremony-halo halo-one" /><div className="ceremony-halo halo-two" /><div className="apex-label">OFFICIAL CHANGE OF NO.01</div></>}
       <div className="ceremony-rule" />
       <span>{board === 'red' ? 'RED LIST VERDICT' : 'BLACK LIST VERDICT'}</span>
       <strong className="ceremony-rank">{String(rank).padStart(2, '0')}</strong>
-      <h1>{headline}</h1>
-      <p>{name}</p>
-      <div className="verdict-seal">{board === 'red' ? '入榜' : '定案'}</div>
-      <button onClick={onClose}>查看最新榜单</button>
+      <h1 id="ranking-ceremony-title">{headline}</h1>
+      <p id="ranking-ceremony-name">{name}</p>
+      <div className="verdict-seal">{rank === 1 ? (board === 'red' ? '榜首' : '最差') : (board === 'red' ? '入榜' : '定案')}</div>
+      <button autoFocus onClick={onClose}>查看最新榜单</button>
     </div>
   )
 }
@@ -544,7 +577,9 @@ export default function App() {
   const [notice, setNotice] = useState('')
   const [bestowTarget, setBestowTarget] = useState<{ entry: FoodEntry; rank: number } | null>(null)
   const [ceremony, setCeremony] = useState<{ board: RankingBoard; rank: number; name: string } | null>(null)
+  const [rankingMotion, setRankingMotion] = useState<RankingMotion | null>(null)
   const recordStartedAt = useRef<string | null>(null)
+  const rankingMoveInFlight = useRef(false)
 
   useEffect(() => {
     const onHash = () => setTab(getHashTab())
@@ -562,6 +597,12 @@ export default function App() {
     const timer = window.setTimeout(() => setNotice(''), 3200)
     return () => window.clearTimeout(timer)
   }, [notice])
+
+  useEffect(() => {
+    if (!rankingMotion) return
+    const timer = window.setTimeout(() => setRankingMotion(null), rankingMotion.toRank === 1 ? 5200 : 2600)
+    return () => window.clearTimeout(timer)
+  }, [rankingMotion])
 
   const go = (next: Tab) => {
     setCompletion(null)
@@ -641,6 +682,7 @@ export default function App() {
     const position = rankedGroups.findIndex((group) => group.entryIds.includes(entryId)) + 1
     await addEvent('ranking_completed', { comparisonCount: resolution.comparisons })
     const placed = await db.entries.get(entryId)
+    setRankingMotion({ id: Date.now(), board, entryId, fromRank: 'NEW', toRank: position })
     setCeremony({ board, rank: position, name: placed?.bestowedName || placed?.name || '新记录' })
     setCompletion({ entryId, position })
   }
@@ -729,29 +771,37 @@ export default function App() {
     }
   }
 
-  const moveRanking = async (board: RankingBoard, entryId: string, targetEntryId?: string) => {
-    if (!targetEntryId) return
+  const moveRanking = async (board: RankingBoard, entryId: string, targetEntryId: string | undefined, fromRank: number, toRank: number) => {
+    if (!targetEntryId || rankingMoveInFlight.current) return
     const source = groups.find((group) => (group.board ?? 'red') === board && group.entryIds.includes(entryId))
     const target = groups.find((group) => (group.board ?? 'red') === board && group.entryIds.includes(targetEntryId))
     if (!source || !target || source.id === target.id) return
+    rankingMoveInFlight.current = true
     try {
-      const delta = source.order - target.order
+      const visibleDelta = fromRank - toRank
       await db.transaction('rw', [db.rankGroups, db.entries], async () => {
         await db.rankGroups.bulkPut([{ ...source, board, order: target.order }, { ...target, board, order: source.order }])
-        await db.entries.update(entryId, { lastRankChange: delta })
-        await db.entries.update(targetEntryId, { lastRankChange: -delta })
+        await db.entries.update(entryId, { lastRankChange: visibleDelta })
+        await db.entries.update(targetEntryId, { lastRankChange: -visibleDelta })
       })
-      if ('vibrate' in navigator) navigator.vibrate(18)
-      setNotice(delta > 0 ? `排名上升 ${delta} 位` : `排名下降 ${Math.abs(delta)} 位`)
+      setRankingMotion({ id: Date.now(), board, entryId, fromRank, toRank })
+      triggerHaptic(toRank === 1 ? [35, 45, 80] : 24)
+      setNotice(visibleDelta > 0 ? `排名上升 ${visibleDelta} 位` : `排名下降 ${Math.abs(visibleDelta)} 位`)
+      if (toRank === 1) {
+        const moved = entries.find((entry) => entry.id === entryId)
+        setCeremony({ board, rank: 1, name: moved?.bestowedName || moved?.name || '新任榜首' })
+      }
     } catch (reason) {
       setError(friendlyStorageError(reason))
+    } finally {
+      rankingMoveInFlight.current = false
     }
   }
 
   const bestowName = async (entry: FoodEntry, name: string) => {
     await db.entries.update(entry.id, { bestowedName: name, bestowedAt: new Date().toISOString(), name })
     await addEvent('name_bestowed')
-    if ('vibrate' in navigator) navigator.vibrate([18, 40, 24])
+    triggerHaptic([18, 40, 24])
     setBestowTarget(null)
     setNotice('名已定')
   }
@@ -820,6 +870,7 @@ export default function App() {
     content = <RankingPage
       entries={entries}
       groups={groups}
+      motion={rankingMotion}
       onResume={resumePending}
       onMove={moveRanking}
       onBestow={(entry, rank) => setBestowTarget({ entry, rank })}
@@ -836,7 +887,7 @@ export default function App() {
       {ceremony && <RankingCeremony {...ceremony} onClose={() => { setCeremony(null); go('ranking') }} />}
       {notice && <div className="status-toast notice">{notice}</div>}
       {error && <ErrorBanner message={error} onDismiss={() => setError('')} />}
-      <main className="page-content">{busy && tab === 'record' && !flowOpen && <div className="processing"><LoaderCircle className="spin" /><strong>正在压缩与识别照片</strong><span>{realAiEnabled ? '正在等待 Gemini 返回标准分类' : '随后会显示验证版模拟分类'}</span></div>}{content}</main>
+      <main className="page-content">{busy && tab === 'record' && !flowOpen && <div className="processing"><LoaderCircle className="spin" /><strong>正在压缩与识别照片</strong><span>{realAiEnabled ? '正在等待 Gemini 返回标准分类' : '公网 AI 后端未连接，将进入手动核准'}</span></div>}{content}</main>
       {!flowOpen && !completion && !cameraOpen && (
         <nav className="bottom-nav" aria-label="主要导航">
           {navItems.map((item) => {

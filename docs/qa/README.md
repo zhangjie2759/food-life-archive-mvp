@@ -12,3 +12,5 @@ The PNG files under `screenshots/` are retained as review evidence. They use onl
 Automated checks remain the source of truth for interaction and persistence behavior. These screenshots are visual evidence, not a substitute for Jay's Safari/iPhone smoke test.
 
 The Chromium camera screenshot uses Playwright's deterministic fake camera feed. It verifies the real `getUserMedia` UI and shutter path without capturing a person or room.
+
+`screenshots-v4/` records the 2026-08-31 corrective pass: explicit public-AI-unavailable state, manual rank revision feedback, and the highest-level NO.01 ceremony. The images contain only bundled demo assets.
