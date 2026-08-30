@@ -19,6 +19,7 @@ export class MockAiSuggestionProvider implements AiSuggestionProvider {
         location: '待补充地点',
         cuisine: cuisines[seed % cuisines.length],
         tags: ['今日记录', seed % 2 === 0 ? '温暖' : '新鲜感'],
+        note: seed % 2 === 0 ? '刚入口时最打动我的，是熟悉又温暖的味道。' : '第一口有一点意外，值得吃完后再回来复判。',
         emotion: emotions[seed % emotions.length],
         occurredAt,
       },

@@ -1,5 +1,5 @@
 export type Emotion = '惊喜' | '怀念' | '满足' | '踩雷'
-export type RankStatus = 'ranking' | 'ranked' | 'pending'
+export type RankStatus = 'ranking' | 'ranked' | 'pending' | 'blacklisted'
 export type ComparisonResult = 'left' | 'right' | 'tie' | 'later'
 
 export interface FoodEntry {
@@ -9,11 +9,14 @@ export interface FoodEntry {
   location: string
   cuisine: string
   tags: string[]
+  note?: string
   emotion: Emotion
   occurredAt: string
   createdAt: string
   isDemo: boolean
   rankStatus: RankStatus
+  blacklistedAt?: string
+  blacklistOrder?: number
 }
 
 export interface RankGroup {
@@ -39,6 +42,7 @@ export type ValidationEventType =
   | 'photo_selected'
   | 'suggestion_ready'
   | 'entry_confirmed'
+  | 'record_saved'
   | 'comparison_completed'
   | 'ranking_completed'
   | 'ranking_deferred'
@@ -57,6 +61,7 @@ export interface FoodDraftFields {
   location: string
   cuisine: string
   tags: string[]
+  note?: string
   emotion: Emotion
   occurredAt: string
 }
@@ -97,6 +102,7 @@ export interface ValidationExportV1 {
   exportedAt: string
   summary: {
     eventCount: number
+    savedRecords: number
     completedRankings: number
     deferredRankings: number
     firstRecordMs: number | null

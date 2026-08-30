@@ -24,11 +24,12 @@ describe('IndexedDB persistence', () => {
 
   it('deletes an entry and repairs group order, then clears everything', async () => {
     await completeOnboarding('demo')
+    const groupCount = await db.rankGroups.count()
     const first = await db.entries.toCollection().first()
     expect(first).toBeDefined()
     await deleteEntry(first!.id)
     expect(await db.entries.get(first!.id)).toBeUndefined()
-    expect((await db.rankGroups.orderBy('order').toArray()).map((group) => group.order)).toEqual([0, 1, 2, 3, 4])
+    expect((await db.rankGroups.orderBy('order').toArray()).map((group) => group.order)).toEqual(Array.from({ length: groupCount - 1 }, (_, order) => order))
     await resetAllData()
     expect(await db.entries.count()).toBe(0)
     expect(await db.settings.count()).toBe(0)

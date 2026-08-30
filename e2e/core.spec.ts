@@ -20,12 +20,18 @@ test.beforeEach(async ({ page, context }) => {
 
 test('mobile core flow: photo, editable mock suggestion, comparisons, ranking', async ({ page }) => {
   await page.getByTestId('load-demo').click()
-  await expect(page.getByTestId('start-record')).toBeVisible()
-  await page.locator('input[type="file"]').setInputFiles(testPhoto)
+  await expect(page.getByTestId('ranking-page')).toBeVisible()
+  await page.getByRole('button', { name: '记录' }).click()
+  await page.getByTestId('camera-import-input').setInputFiles(testPhoto)
   await expect(page.getByTestId('suggestion-form')).toBeVisible()
-  await expect(page.getByText(/验证版模拟识别/)).toBeVisible()
+  await expect(page.getByText(/验证版 AI 建议/)).toBeVisible()
   await page.getByTestId('food-name').fill('雨夜的煲仔饭')
+  await page.getByTestId('food-note').fill('吃完以后再认真决定它的位置')
   await page.getByTestId('confirm-entry').click()
+  await expect(page.getByTestId('completion-card')).toContainText('先记录')
+  await page.getByTestId('view-ranking').click()
+  await expect(page.getByTestId('pending-list')).toContainText('雨夜的煲仔饭')
+  await page.getByRole('button', { name: '开始复判雨夜的煲仔饭' }).click()
   await expect(page.getByTestId('comparison-view')).toBeVisible()
   for (let count = 0; count < 4; count += 1) {
     if (await page.getByTestId('completion-card').isVisible().catch(() => false)) break
@@ -38,7 +44,7 @@ test('mobile core flow: photo, editable mock suggestion, comparisons, ranking', 
       return Boolean(choice && !choice.disabled)
     })
   }
-  await expect(page.getByTestId('completion-card')).toContainText('人生榜第 1 位')
+  await expect(page.getByTestId('completion-card')).toContainText('排在第 1 位')
   await page.getByTestId('view-ranking').click()
   await expect(page.getByTestId('ranking-page')).toContainText('雨夜的煲仔饭')
 
@@ -50,11 +56,14 @@ test('mobile core flow: photo, editable mock suggestion, comparisons, ranking', 
 
 test('defer keeps the entry locally in pending', async ({ page }) => {
   await page.getByTestId('load-demo').click()
-  await page.locator('input[type="file"]').setInputFiles(testPhoto)
+  await page.getByRole('button', { name: '记录' }).click()
+  await page.getByTestId('camera-import-input').setInputFiles(testPhoto)
   await page.getByTestId('food-name').fill('以后再决定的味道')
   await page.getByTestId('confirm-entry').click()
+  await page.getByTestId('view-ranking').click()
+  await page.getByRole('button', { name: '开始复判以后再决定的味道' }).click()
   await page.getByTestId('choose-later').click()
-  await expect(page.getByTestId('completion-card')).toContainText('先留住')
+  await expect(page.getByTestId('completion-card')).toContainText('先记录')
   await page.getByTestId('view-ranking').click()
   await expect(page.getByTestId('pending-list')).toContainText('以后再决定的味道')
   await page.reload()
@@ -64,7 +73,7 @@ test('defer keeps the entry locally in pending', async ({ page }) => {
 test('camera-first flow opens a live viewfinder and captures into ranking', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium', 'Chromium uses a deterministic fake camera device in CI; Safari camera remains a real-device smoke test.')
   await page.getByTestId('load-demo').click()
-  await page.getByTestId('start-record').click()
+  await page.getByRole('button', { name: '记录' }).click()
   await expect(page.getByTestId('camera-screen')).toBeVisible()
   await expect(page.getByTestId('camera-viewfinder')).toBeVisible()
   await expect(page.getByTestId('camera-shutter')).toBeEnabled()
@@ -72,14 +81,14 @@ test('camera-first flow opens a live viewfinder and captures into ranking', asyn
   await expect(page.getByTestId('suggestion-form')).toBeVisible()
   await page.getByTestId('food-name').fill('摄像头拍下的味道')
   await page.getByTestId('confirm-entry').click()
-  await page.getByTestId('choose-later').click()
-  await expect(page.getByTestId('completion-card')).toContainText('先留住')
+  await expect(page.getByTestId('completion-card')).toContainText('先记录')
   await page.getByTestId('view-ranking').click()
   await expect(page.getByTestId('pending-list')).toContainText('摄像头拍下的味道')
 })
 
 test('manifest, static base and offline app shell', async ({ page, context, browserName }) => {
   await page.getByText('空白开始').click()
+  await expect(page.getByTestId('ranking-page')).toBeVisible()
   const manifest = await page.request.get('./manifest.webmanifest')
   expect(manifest.ok()).toBe(true)
   expect((await manifest.json()).name).toContain('我的味觉档案')
@@ -91,7 +100,37 @@ test('manifest, static base and offline app shell', async ({ page, context, brow
   }
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByText('留下一餐，留下当时的你')).toBeVisible()
+  await expect(page.getByText(/不是最好吃/)).toBeVisible()
   await context.setOffline(false)
   test.info().annotations.push({ type: 'browser', description: browserName })
+})
+
+test('month/year switch, manual reorder and ranking image export', async ({ page }) => {
+  await page.getByTestId('load-demo').click()
+  await expect(page.getByTestId('period-month')).toHaveClass(/active/)
+  await page.getByTestId('period-year').click()
+  await expect(page.getByTestId('period-year')).toHaveClass(/active/)
+  const firstName = await page.locator('.rank-row strong').first().textContent()
+  await page.locator('.rank-adjust button[aria-label^="下移"]').first().click()
+  await expect(page.locator('.rank-row strong').nth(1)).toHaveText(firstName ?? '')
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: '生成分享图' }).click()
+  expect((await download).suggestedFilename()).toMatch(/我的年榜.*\.png$/)
+})
+
+test('pending food can enter the private blacklist, reorder and export', async ({ page }) => {
+  await page.getByTestId('load-demo').click()
+  await page.getByRole('button', { name: '记录' }).click()
+  await page.getByTestId('camera-import-input').setInputFiles(testPhoto)
+  await page.getByTestId('food-name').fill('这次真的踩雷了')
+  await page.getByTestId('food-note').fill('太咸，而且已经凉了')
+  await page.getByTestId('confirm-entry').click()
+  await page.getByTestId('view-ranking').click()
+  await page.getByRole('button', { name: '送进黑榜这次真的踩雷了' }).click()
+  await page.getByTestId('period-blacklist').click()
+  await expect(page.getByTestId('blacklist-ranking')).toContainText('这次真的踩雷了')
+  await expect(page.getByTestId('ranking-page')).toContainText('不是公开餐厅评分')
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: '生成分享图' }).click()
+  expect((await download).suggestedFilename()).toMatch(/我的黑榜-人生避雷\.png$/)
 })

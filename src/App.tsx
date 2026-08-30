@@ -1,21 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Archive,
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   Camera,
   Check,
   ChevronRight,
   Clock3,
   Crown,
   Download,
+  Frown,
   Heart,
   Home,
   LoaderCircle,
   MapPin,
   Medal,
   ShieldCheck,
+  Share2,
   Sparkles,
+  RotateCcw,
   Trash2,
   Trophy,
   UserRound,
@@ -28,6 +34,7 @@ import { CameraCapture } from './components/CameraCapture'
 import { db, completeOnboarding, deleteEntry, friendlyStorageError, resetAllData } from './data/db'
 import { compressImageToWebP } from './lib/image'
 import { createValidationExport } from './lib/export'
+import { createRankingShareFile, shareOrDownloadRanking } from './lib/share'
 import { createId } from './lib/id'
 import { beginRanking, resolveComparison, type RankingResolution } from './lib/ranking'
 import { aiSuggestionProvider } from './services/ai'
@@ -45,15 +52,15 @@ import type {
 type Tab = 'record' | 'archive' | 'ranking' | 'profile'
 
 const navItems: Array<{ id: Tab; label: string; icon: typeof Home }> = [
+  { id: 'ranking', label: '榜单', icon: Trophy },
   { id: 'record', label: '记录', icon: Camera },
   { id: 'archive', label: '档案', icon: Archive },
-  { id: 'ranking', label: '榜单', icon: Trophy },
   { id: 'profile', label: '我的', icon: UserRound },
 ]
 
 function getHashTab(): Tab {
   const value = window.location.hash.replace('#/', '')
-  return navItems.some((item) => item.id === value) ? value as Tab : 'record'
+  return navItems.some((item) => item.id === value) ? value as Tab : 'ranking'
 }
 
 async function addEvent(type: ValidationEventType, details: { elapsedMs?: number; comparisonCount?: number } = {}) {
@@ -65,7 +72,7 @@ async function addEvent(type: ValidationEventType, details: { elapsedMs?: number
   })
 }
 
-function PageHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description?: string }) {
+function PageHeader({ eyebrow, title, description }: { eyebrow: string; title: ReactNode; description?: string }) {
   return (
     <header className="page-header">
       <p className="eyebrow">{eyebrow}</p>
@@ -204,22 +211,29 @@ function SuggestionForm({ draft, busy, onChange, onBack, onConfirm }: {
     <section data-testid="suggestion-form">
       <button className="back-button" onClick={onBack}><ArrowLeft size={19} />返回</button>
       <div className="photo-hero compact"><img src={draft.image} alt="本次记录的美食" /></div>
-      <div className="mock-badge"><Sparkles size={16} />验证版模拟识别 · 请由你确认</div>
-      <PageHeader eyebrow="把建议改成你的记忆" title="这道味道，是什么？" />
-      <div className="form-grid">
+      <div className="mock-badge"><Sparkles size={16} />验证版 AI 建议 · 请由你确认</div>
+      <PageHeader eyebrow="快速记录" title="AI 先起草，你只需改对" description="这一刻只记录。吃完以后，再回来复判它的位置。" />
+      <div className="quick-form">
         <label>菜名<input data-testid="food-name" value={fields.name} onChange={(event) => update('name', event.target.value)} /></label>
-        <label>地点<input value={fields.location} onChange={(event) => update('location', event.target.value)} /></label>
-        <label>菜系<input value={fields.cuisine} onChange={(event) => update('cuisine', event.target.value)} /></label>
+        <label>一句备注<textarea data-testid="food-note" value={fields.note ?? ''} onChange={(event) => update('note', event.target.value)} placeholder="例如：雨天第一口，突然想起小时候" /></label>
         <label>标签<input value={fields.tags.join('、')} onChange={(event) => update('tags', event.target.value.split(/[、,，]/).map((tag) => tag.trim()).filter(Boolean))} /></label>
-        <label>当时的感受
-          <select value={fields.emotion} onChange={(event) => update('emotion', event.target.value as Emotion)}>
-            {(['惊喜', '怀念', '满足', '踩雷'] as Emotion[]).map((emotion) => <option key={emotion}>{emotion}</option>)}
-          </select>
-        </label>
-        <label>发生日期<input type="date" value={fields.occurredAt} onChange={(event) => update('occurredAt', event.target.value)} /></label>
+        <p className="ai-experiment-note"><Sparkles size={15} />首版只验证 AI 对命名、备注和标签是否真的省时间；照片仍不会上传。</p>
       </div>
+      <details className="optional-fields">
+        <summary>补充地点、菜系与感受</summary>
+        <div className="form-grid">
+          <label>地点<input value={fields.location} onChange={(event) => update('location', event.target.value)} /></label>
+          <label>菜系<input value={fields.cuisine} onChange={(event) => update('cuisine', event.target.value)} /></label>
+          <label>当时的感受
+            <select value={fields.emotion} onChange={(event) => update('emotion', event.target.value as Emotion)}>
+              {(['惊喜', '怀念', '满足', '踩雷'] as Emotion[]).map((emotion) => <option key={emotion}>{emotion}</option>)}
+            </select>
+          </label>
+          <label>发生日期<input type="date" value={fields.occurredAt} onChange={(event) => update('occurredAt', event.target.value)} /></label>
+        </div>
+      </details>
       <button className="button primary sticky-action" data-testid="confirm-entry" disabled={busy || !fields.name.trim()} onClick={() => onConfirm(fields)}>
-        {busy ? <LoaderCircle className="spin" /> : <Check />}确认，放进我的榜单
+        {busy ? <LoaderCircle className="spin" /> : <Check />}保存记录，吃完再排
       </button>
     </section>
   )
@@ -239,7 +253,7 @@ function ComparisonView({ draft, anchor, busy, onDecision }: {
         <span>最多 4 次</span>
       </div>
       <div className="progress-track"><span style={{ width: `${round * 25}%` }} /></div>
-      <PageHeader eyebrow="不用打分，只需凭感觉" title="如果只能留下一道，你选谁？" />
+      <PageHeader eyebrow="吃完后的复判" title="如果只能留下一道，你选谁？" description="现在用完整感受决定；之后仍然可以手动调整顺位。" />
       <div className="duel-grid">
         <button disabled={busy} className="food-choice" data-testid="choose-new" onClick={() => onDecision('left')}>
           <img src={draft.image} alt={draft.fields.name} />
@@ -274,12 +288,12 @@ function CompletionCard({ entry, position, pending, onRanking, onAgain }: {
   return (
     <section className="completion" data-testid="completion-card">
       <div className="celebration"><Heart fill="currentColor" /></div>
-      <p className="eyebrow">记录已经留在这台设备</p>
-      <h1>{pending ? '先留住，再慢慢决定' : `它进入了人生榜第 ${position} 位`}</h1>
+      <p className="eyebrow">{pending ? '快速记录完成' : '复判完成'}</p>
+      <h1>{pending ? '先记录。吃完，再决定它的位置。' : `它现在排在第 ${position} 位`}</h1>
       <div className="completion-food"><img src={entry.image} alt={entry.name} /><strong>{entry.name}</strong><span>{entry.location}</span></div>
-      <p>{pending ? '这道味道已进入待比较区，任何时候都可以回来继续。' : '榜单不是终点，它会随着未来的每一餐继续变化。'}</p>
-      <button className="button primary" data-testid="view-ranking" onClick={onRanking}>{pending ? '查看待比较' : '看看我的人生榜'}</button>
-      <button className="button secondary" onClick={onAgain}>再记一道</button>
+      <p>{pending ? '它已经安全保存，待你吃完后再进入复判。记录和排名，不必发生在同一刻。' : '顺位随时可以继续调整，榜单会和你的味觉一起变化。'}</p>
+      <button className="button primary" data-testid="view-ranking" onClick={onRanking}>{pending ? '回到榜单' : '查看最新榜单'}</button>
+      <button className="button secondary" onClick={onAgain}>打开摄像头，再记一道</button>
     </section>
   )
 }
@@ -298,6 +312,7 @@ function ArchivePage({ entries, onDelete }: { entries: FoodEntry[]; onDelete: (e
                 <div className="card-kicker"><span>{entry.occurredAt}</span>{entry.isDemo && <b>演示</b>}</div>
                 <h2>{entry.name}</h2>
                 <p><MapPin size={15} />{entry.location} · {entry.cuisine}</p>
+                {entry.note && <p className="archive-note">{entry.note}</p>}
                 <div className="tag-row">{entry.tags.slice(0, 3).map((tag) => <span key={tag}>#{tag}</span>)}</div>
               </div>
               <button className="icon-button delete-button" onClick={() => onDelete(entry)} aria-label={`删除${entry.name}`}><Trash2 size={18} /></button>
@@ -309,50 +324,107 @@ function ArchivePage({ entries, onDelete }: { entries: FoodEntry[]; onDelete: (e
   )
 }
 
-function RankingPage({ entries, groups, onResume }: { entries: FoodEntry[]; groups: RankGroup[]; onResume: (entry: FoodEntry) => void }) {
+function RankingPage({ entries, groups, onResume, onBlacklist, onMove, onMoveBlacklist, onRestoreBlacklist, onShare }: {
+  entries: FoodEntry[]
+  groups: RankGroup[]
+  onResume: (entry: FoodEntry) => void
+  onBlacklist: (entry: FoodEntry) => void
+  onMove: (entryId: string, targetEntryId?: string) => void
+  onMoveBlacklist: (entryId: string, targetEntryId?: string) => void
+  onRestoreBlacklist: (entry: FoodEntry) => void
+  onShare: (entries: FoodEntry[], label: string, key: string) => void
+}) {
+  const now = new Date()
+  const currentMonth = now.toISOString().slice(0, 7)
+  const currentYear = String(now.getFullYear())
+  const [period, setPeriod] = useState<'month' | 'year' | 'blacklist'>('month')
+  const [month, setMonth] = useState(currentMonth)
+  const years = useMemo(() => [...new Set([currentYear, ...entries.map((entry) => entry.occurredAt.slice(0, 4))])].sort((a, b) => b.localeCompare(a)), [currentYear, entries])
+  const [year, setYear] = useState(currentYear)
+  const periodKey = period === 'month' ? month : period === 'year' ? year : '人生避雷'
+  const periodLabel = period === 'month' ? '月榜' : period === 'year' ? '年榜' : '黑榜'
   const byId = useMemo(() => new Map(entries.map((entry) => [entry.id, entry])), [entries])
-  const allRanked = groups.flatMap((group, groupIndex) => group.entryIds.map((id) => ({ entry: byId.get(id), rank: groupIndex + 1 }))).filter((item): item is { entry: FoodEntry; rank: number } => Boolean(item.entry))
-  const ranked = allRanked.slice(0, 10)
-  const month = new Date().toISOString().slice(0, 7)
-  const monthly = allRanked.filter(({ entry }) => entry.occurredAt.startsWith(month)).slice(0, 3)
-  const pending = entries.filter((entry) => entry.rankStatus === 'pending')
+  const allRanked = groups.flatMap((group) => group.entryIds.map((id) => ({ entry: byId.get(id), groupId: group.id }))).filter((item): item is { entry: FoodEntry; groupId: string } => Boolean(item.entry))
+  const ranked = allRanked.filter(({ entry }) => entry.occurredAt.startsWith(periodKey)).slice(0, 10)
+  const pending = entries.filter((entry) => entry.rankStatus === 'pending' && entry.occurredAt.startsWith(periodKey)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const blacklisted = entries.filter((entry) => entry.rankStatus === 'blacklisted').sort((a, b) => (a.blacklistOrder ?? Number.MAX_SAFE_INTEGER) - (b.blacklistOrder ?? Number.MAX_SAFE_INTEGER) || (b.blacklistedAt ?? b.createdAt).localeCompare(a.blacklistedAt ?? a.createdAt))
+  const sharedEntries = period === 'blacklist' ? blacklisted : ranked.map(({ entry }) => entry)
   return (
     <section data-testid="ranking-page">
-      <PageHeader eyebrow="我的美食人生榜" title="不是最好吃，是我最想留下" description="每一道的位置，只由你的选择决定。" />
-      <div className="rank-hero">
-        <Crown size={22} />
-        <div><small>此刻的人生第一</small><strong>{ranked[0]?.entry.name ?? '等待第一道味道'}</strong></div>
+      <PageHeader
+        eyebrow={period === 'blacklist' ? '私人吐槽区' : '我的榜单'}
+        title={period === 'blacklist' ? <>不好吃，<span>也值得被记住</span></> : <>不是最好吃，<span>是我最想留下</span></>}
+        description={period === 'blacklist' ? '只代表我的味觉和这一次体验，不是公开餐厅评分。' : '先快速记录。吃完以后再复判，并且随时调整顺位。'}
+      />
+      <div className="period-tabs" role="tablist" aria-label="榜单周期">
+        <button data-testid="period-month" className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>月榜</button>
+        <button data-testid="period-year" className={period === 'year' ? 'active' : ''} onClick={() => setPeriod('year')}>年榜</button>
+        <button data-testid="period-blacklist" className={period === 'blacklist' ? 'active blacklist-tab' : 'blacklist-tab'} onClick={() => setPeriod('blacklist')}>黑榜</button>
       </div>
-      {ranked.length === 0 ? <EmptyState icon={Trophy} title="榜单还是空的" body="完成第一条记录，它会成为人生榜的起点。" /> : (
-        <div className="rank-list">
-          {ranked.map(({ entry, rank }) => (
-            <article key={entry.id} className={`rank-row rank-${rank}`}>
-              <span className="rank-number">{rank <= 3 ? <Medal size={20} /> : rank}</span>
+      <div className="period-toolbar">
+        {period === 'month' ? <input aria-label="选择月份" type="month" value={month} onChange={(event) => setMonth(event.target.value || currentMonth)} /> : period === 'year' ? (
+          <select aria-label="选择年份" value={year} onChange={(event) => setYear(event.target.value)}>{years.map((item) => <option key={item}>{item}</option>)}</select>
+        ) : <p className="blacklist-warning">私人避雷 · 可随时移出</p>}
+        <button className="share-ranking" disabled={!sharedEntries.length} onClick={() => onShare(sharedEntries, periodLabel, periodKey.replace('-', '.'))}><Share2 size={17} />生成分享图</button>
+      </div>
+
+      {period !== 'blacklist' && pending.length > 0 && (
+        <div className="review-queue" data-testid="pending-list">
+          <div><p className="eyebrow">吃完再判断</p><h2>{pending.length} 道味道等待复判</h2></div>
+          {pending.map((entry) => (
+            <article key={entry.id} className="review-card">
               <img src={entry.image} alt={entry.name} />
-              <div><strong>{entry.name}</strong><small>{entry.location} · {entry.emotion}</small></div>
-              {entry.isDemo && <b className="demo-chip">演示</b>}
+              <span><strong>{entry.name}</strong><small>{entry.note || '现在凭完整感受，决定它的位置'}</small></span>
+              <div className="review-actions">
+                <button data-testid={`review-${entry.id}`} onClick={() => onResume(entry)} aria-label={`开始复判${entry.name}`}>开始复判</button>
+                <button className="blacklist-action" data-testid={`blacklist-${entry.id}`} onClick={() => onBlacklist(entry)} aria-label={`送进黑榜${entry.name}`}>送进黑榜</button>
+              </div>
             </article>
           ))}
         </div>
       )}
 
-      <div className="section-heading"><div><p className="eyebrow">本月切片</p><h2>这个月最想留下</h2></div><span>{month.replace('-', '.')}</span></div>
-      <div className="monthly-grid" data-testid="monthly-ranking">
-        {(monthly.length ? monthly : ranked.slice(0, 3)).map(({ entry, rank }) => (
-          <article key={entry.id}><span>#{rank}</span><img src={entry.image} alt={entry.name} /><strong>{entry.name}</strong></article>
-        ))}
-      </div>
-
-      {pending.length > 0 && (
-        <div className="pending-section" data-testid="pending-list">
-          <div className="section-heading"><div><p className="eyebrow">不必现在决定</p><h2>待比较</h2></div><span>{pending.length}</span></div>
-          {pending.map((entry) => (
-            <button key={entry.id} className="pending-row" onClick={() => onResume(entry)}>
-              <img src={entry.image} alt={entry.name} /><span><strong>{entry.name}</strong><small>继续比较，找到它的位置</small></span><ChevronRight />
-            </button>
-          ))}
+      {period === 'blacklist' ? (
+        <div className="blacklist-panel">
+          <div className="blacklist-hero"><Frown size={23} /><div><small>此刻最想吐槽</small><strong>{blacklisted[0]?.name ?? '黑榜还是空的'}</strong></div></div>
+          {blacklisted.length === 0 ? <EmptyState icon={Frown} title="还没有踩雷记录" body="吃完后，把不想再遇见的味道送进这里。" /> : (
+            <div className="blacklist-list" data-testid="blacklist-ranking">
+              {blacklisted.map((entry, index) => (
+                <article className="blacklist-row" key={entry.id}>
+                  <span className="blacklist-number">{String(index + 1).padStart(2, '0')}</span>
+                  <img src={entry.image} alt={entry.name} />
+                  <div className="blacklist-copy"><strong>{entry.name}</strong><small>{entry.note || entry.tags.join(' · ') || '这次真的不合口味'}</small></div>
+                  <div className="blacklist-actions">
+                    <button disabled={index === 0} onClick={() => onMoveBlacklist(entry.id, blacklisted[index - 1]?.id)} aria-label={`上移黑榜${entry.name}`}><ArrowUp /></button>
+                    <button disabled={index === blacklisted.length - 1} onClick={() => onMoveBlacklist(entry.id, blacklisted[index + 1]?.id)} aria-label={`下移黑榜${entry.name}`}><ArrowDown /></button>
+                    <button className="restore-blacklist" onClick={() => onRestoreBlacklist(entry)} aria-label={`移出黑榜${entry.name}`}><RotateCcw /></button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      ) : <>
+        <div className="rank-hero">
+          <Crown size={22} />
+          <div><small>此刻的{periodLabel}第一</small><strong>{ranked[0]?.entry.name ?? '等待完成复判'}</strong></div>
+        </div>
+      {ranked.length === 0 ? <EmptyState icon={Trophy} title={`${periodLabel}还是空的`} body="先记录，吃完后完成一次复判。" /> : (
+        <div className="rank-list" data-testid="period-ranking">
+          {ranked.map(({ entry }, index) => {
+            const rank = index + 1
+            return <article key={entry.id} className={`rank-row rank-${rank}`}>
+              <span className="rank-number">{rank <= 3 ? <Medal size={20} /> : rank}</span>
+              <img src={entry.image} alt={entry.name} />
+              <div><strong>{entry.name}</strong><small>{entry.note || `${entry.location} · ${entry.emotion}`}</small></div>
+              <div className="rank-adjust">
+                <button disabled={index === 0} onClick={() => onMove(entry.id, ranked[index - 1]?.entry.id)} aria-label={`上移${entry.name}`}><ArrowUp /></button>
+                <button disabled={index === ranked.length - 1} onClick={() => onMove(entry.id, ranked[index + 1]?.entry.id)} aria-label={`下移${entry.name}`}><ArrowDown /></button>
+              </div>
+            </article>
+          })}
+        </div>
+      )}</>}
     </section>
   )
 }
@@ -369,8 +441,9 @@ function ProfilePage({ entries, events, onExport, onClear }: {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => ({ name, count, percent: entries.length ? Math.round(count / entries.length * 100) : 0 }))
   }, [entries])
   const completed = events.filter((event) => event.type === 'ranking_completed')
+  const saved = events.filter((event) => event.type === 'record_saved')
   const median = (values: number[]) => values.length ? [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] : null
-  const medianSeconds = median(completed.flatMap((event) => event.elapsedMs === undefined ? [] : [event.elapsedMs]))
+  const medianSeconds = median(saved.flatMap((event) => event.elapsedMs === undefined ? [] : [event.elapsedMs]))
   const medianComparisons = median(completed.flatMap((event) => event.comparisonCount === undefined ? [] : [event.comparisonCount]))
   return (
     <section>
@@ -387,8 +460,8 @@ function ProfilePage({ entries, events, onExport, onClear }: {
 
       <div className="section-heading"><div><p className="eyebrow">验证仪表</p><h2>这版是否足够轻？</h2></div></div>
       <div className="metric-grid">
-        <div><strong>{completed.length}</strong><span>完成入榜</span></div>
-        <div><strong>{medianSeconds === null ? '—' : `${Math.round(medianSeconds / 1000)}s`}</strong><span>中位用时</span></div>
+        <div><strong>{saved.length}</strong><span>快速记录</span></div>
+        <div><strong>{medianSeconds === null ? '—' : `${Math.round(medianSeconds / 1000)}s`}</strong><span>记录中位用时</span></div>
         <div><strong>{medianComparisons ?? '—'}</strong><span>中位比较</span></div>
       </div>
       <p className="fine-print">这些只是本机验证数据，不代表产品假设已经成立。</p>
@@ -443,12 +516,13 @@ export default function App() {
   const [error, setError] = useState('')
   const [completion, setCompletion] = useState<{ entryId: string; position?: number; pending?: boolean } | null>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
+  const [notice, setNotice] = useState('')
   const recordStartedAt = useRef<string | null>(null)
 
   useEffect(() => {
     const onHash = () => setTab(getHashTab())
     window.addEventListener('hashchange', onHash)
-    if (!window.location.hash) window.location.hash = '/record'
+    if (!window.location.hash) window.location.hash = '/ranking'
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
@@ -456,15 +530,23 @@ export default function App() {
     if (tab === 'ranking' && onboarding) void addEvent('ranking_viewed')
   }, [tab, onboarding])
 
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(''), 3200)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
   const go = (next: Tab) => {
     setCompletion(null)
     setFlowOpen(false)
+    setCameraOpen(false)
     window.location.hash = `/${next}`
   }
 
   const chooseOnboarding = async (mode: 'demo' | 'empty') => {
     await completeOnboarding(mode)
     await addEvent('onboarding_completed')
+    go('ranking')
   }
 
   const beginRecordAttempt = () => {
@@ -528,8 +610,7 @@ export default function App() {
     await db.drafts.delete('active')
     const rankedGroups = await db.rankGroups.orderBy('order').toArray()
     const position = rankedGroups.findIndex((group) => group.entryIds.includes(entryId)) + 1
-    const started = draft ? new Date(draft.startedAt).getTime() : Date.now()
-    await addEvent('ranking_completed', { elapsedMs: Math.max(0, Date.now() - started), comparisonCount: resolution.comparisons })
+    await addEvent('ranking_completed', { comparisonCount: resolution.comparisons })
     setCompletion({ entryId, position })
   }
 
@@ -550,18 +631,15 @@ export default function App() {
       tags: fields.tags.map((tag) => tag.trim()).filter(Boolean),
       createdAt: new Date().toISOString(),
       isDemo: false,
-      rankStatus: 'ranking',
+      rankStatus: 'pending',
     }
     try {
       await db.entries.put(entry)
       await addEvent('entry_confirmed')
-      const groupIds = groups.map((group) => group.id)
-      const result = beginRanking(groupIds)
-      if (result.kind === 'continue') {
-        await db.drafts.put({ ...draft, fields, step: 'compare', entryId, ranking: result.progress })
-      } else {
-        await applyPlacement(entryId, result)
-      }
+      await addEvent('record_saved', { elapsedMs: Math.max(0, Date.now() - new Date(draft.startedAt).getTime()) })
+      await db.drafts.delete('active')
+      setFlowOpen(false)
+      setCompletion({ entryId, pending: true })
     } catch (reason) {
       setError(reason instanceof Error && reason.message.includes('排名') ? reason.message : friendlyStorageError(reason))
     } finally {
@@ -606,13 +684,101 @@ export default function App() {
       await db.entries.update(entry.id, { rankStatus: 'ranking' })
       await db.drafts.put({
         id: 'active', step: 'compare', image: entry.image,
-        fields: { name: entry.name, location: entry.location, cuisine: entry.cuisine, tags: entry.tags, emotion: entry.emotion, occurredAt: entry.occurredAt },
+        fields: { name: entry.name, location: entry.location, cuisine: entry.cuisine, tags: entry.tags, note: entry.note, emotion: entry.emotion, occurredAt: entry.occurredAt },
         startedAt: new Date().toISOString(), entryId: entry.id, ranking: result.progress,
       })
       go('record')
       setFlowOpen(true)
     } else {
       await applyPlacement(entry.id, result)
+    }
+  }
+
+  const moveRanking = async (entryId: string, targetEntryId?: string) => {
+    if (!targetEntryId) return
+    const source = groups.find((group) => group.entryIds.includes(entryId))
+    const target = groups.find((group) => group.entryIds.includes(targetEntryId))
+    if (!source || !target || source.id === target.id) return
+    try {
+      await db.rankGroups.bulkPut([{ ...source, order: target.order }, { ...target, order: source.order }])
+      setNotice('顺位已调整')
+    } catch (reason) {
+      setError(friendlyStorageError(reason))
+    }
+  }
+
+  const blacklistEntry = async (entry: FoodEntry) => {
+    try {
+      await db.transaction('rw', [db.entries, db.rankGroups, db.drafts], async () => {
+        const blacklisted = await db.entries.where('rankStatus').equals('blacklisted').toArray()
+        const rankedGroups = await db.rankGroups.orderBy('order').toArray()
+        const hadRank = rankedGroups.some((group) => group.entryIds.includes(entry.id))
+        const survivors = rankedGroups
+          .map((group) => ({ ...group, entryIds: group.entryIds.filter((id) => id !== entry.id) }))
+          .filter((group) => group.entryIds.length > 0)
+          .map((group, order) => ({ ...group, order }))
+        if (hadRank) {
+          await db.rankGroups.clear()
+          await db.rankGroups.bulkPut(survivors)
+        }
+        await db.entries.put({
+          ...entry,
+          rankStatus: 'blacklisted',
+          blacklistedAt: new Date().toISOString(),
+          blacklistOrder: blacklisted.length,
+        })
+        const activeDraft = await db.drafts.get('active')
+        if (activeDraft?.entryId === entry.id) await db.drafts.delete('active')
+      })
+      setFlowOpen(false)
+      setCompletion(null)
+      go('ranking')
+      setNotice('已放进私人黑榜')
+    } catch (reason) {
+      setError(friendlyStorageError(reason))
+    }
+  }
+
+  const moveBlacklist = async (entryId: string, targetEntryId?: string) => {
+    if (!targetEntryId) return
+    const blacklisted = entries.filter((entry) => entry.rankStatus === 'blacklisted').sort((a, b) => (a.blacklistOrder ?? Number.MAX_SAFE_INTEGER) - (b.blacklistOrder ?? Number.MAX_SAFE_INTEGER))
+    const sourceIndex = blacklisted.findIndex((entry) => entry.id === entryId)
+    const targetIndex = blacklisted.findIndex((entry) => entry.id === targetEntryId)
+    if (sourceIndex < 0 || targetIndex < 0) return
+    try {
+      await db.entries.bulkPut([
+        { ...blacklisted[sourceIndex], blacklistOrder: targetIndex },
+        { ...blacklisted[targetIndex], blacklistOrder: sourceIndex },
+      ])
+      setNotice('黑榜顺位已调整')
+    } catch (reason) {
+      setError(friendlyStorageError(reason))
+    }
+  }
+
+  const restoreFromBlacklist = async (entry: FoodEntry) => {
+    try {
+      const restored: FoodEntry = { ...entry, rankStatus: 'pending' }
+      delete restored.blacklistedAt
+      delete restored.blacklistOrder
+      await db.entries.put(restored)
+      const remaining = (await db.entries.where('rankStatus').equals('blacklisted').toArray())
+        .sort((a, b) => (a.blacklistOrder ?? Number.MAX_SAFE_INTEGER) - (b.blacklistOrder ?? Number.MAX_SAFE_INTEGER))
+      await db.entries.bulkPut(remaining.map((item, blacklistOrder) => ({ ...item, blacklistOrder })))
+      setNotice('已移出黑榜，回到待复判')
+    } catch (reason) {
+      setError(friendlyStorageError(reason))
+    }
+  }
+
+  const shareRanking = async (rankedEntries: FoodEntry[], label: string, key: string) => {
+    try {
+      const file = await createRankingShareFile(rankedEntries, label, key)
+      const result = await shareOrDownloadRanking(file)
+      setNotice(result === 'shared' ? '分享面板已打开，可选择“存储图像”' : '排行榜图片已下载')
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === 'AbortError') return
+      setError(reason instanceof Error ? reason.message : '无法生成排行榜图片。')
     }
   }
 
@@ -642,7 +808,7 @@ export default function App() {
     await resetAllData()
     setCompletion(null)
     setFlowOpen(false)
-    go('record')
+    go('ranking')
   }
 
   if (onboarding === undefined) return <main className="loading-screen"><LoaderCircle className="spin" /><p>正在打开你的味觉档案…</p></main>
@@ -654,9 +820,9 @@ export default function App() {
 
   let content
   if (tab === 'record' && cameraOpen) {
-    content = <CameraCapture onClose={() => setCameraOpen(false)} onCapture={async (file) => { setCameraOpen(false); await handleFile(file) }} />
+    content = <CameraCapture onClose={() => go('ranking')} onCapture={async (file) => { setCameraOpen(false); await handleFile(file) }} />
   } else if (tab === 'record' && completion && completionEntry) {
-    content = <CompletionCard entry={completionEntry} position={completion.position} pending={completion.pending} onRanking={() => go('ranking')} onAgain={() => { setCompletion(null); setFlowOpen(false) }} />
+    content = <CompletionCard entry={completionEntry} position={completion.position} pending={completion.pending} onRanking={() => go('ranking')} onAgain={() => { setCompletion(null); setFlowOpen(false); beginRecordAttempt(); setCameraOpen(true) }} />
   } else if (tab === 'record' && flowOpen && draft?.step === 'form') {
     content = <SuggestionForm draft={draft} busy={busy} onChange={updateDraftFields} onBack={() => setFlowOpen(false)} onConfirm={confirmEntry} />
   } else if (tab === 'record' && flowOpen && draft?.step === 'compare' && anchor) {
@@ -666,7 +832,16 @@ export default function App() {
   } else if (tab === 'archive') {
     content = <ArchivePage entries={entries} onDelete={handleDelete} />
   } else if (tab === 'ranking') {
-    content = <RankingPage entries={entries} groups={groups} onResume={resumePending} />
+    content = <RankingPage
+      entries={entries}
+      groups={groups}
+      onResume={resumePending}
+      onBlacklist={(entry) => void blacklistEntry(entry)}
+      onMove={moveRanking}
+      onMoveBlacklist={moveBlacklist}
+      onRestoreBlacklist={(entry) => void restoreFromBlacklist(entry)}
+      onShare={(rankedEntries, label, key) => void shareRanking(rankedEntries, label, key)}
+    />
   } else {
     content = <ProfilePage entries={entries} events={events} onExport={exportEvents} onClear={clearData} />
   }
@@ -674,13 +849,14 @@ export default function App() {
   return (
     <div className="app-shell">
       <PwaStatus />
+      {notice && <div className="status-toast notice">{notice}</div>}
       {error && <ErrorBanner message={error} onDismiss={() => setError('')} />}
       <main className="page-content">{busy && tab === 'record' && !flowOpen && <div className="processing"><LoaderCircle className="spin" /><strong>正在设备内处理照片</strong><span>随后会显示验证版模拟建议</span></div>}{content}</main>
       {!flowOpen && !completion && !cameraOpen && (
         <nav className="bottom-nav" aria-label="主要导航">
           {navItems.map((item) => {
             const Icon = item.icon
-            return <button key={item.id} className={tab === item.id ? 'active' : ''} onClick={() => go(item.id)}><Icon /><span>{item.label}</span></button>
+            return <button key={item.id} className={tab === item.id ? 'active' : ''} onClick={() => { if (item.id === 'record') { go('record'); beginRecordAttempt(); setCameraOpen(true) } else go(item.id) }}><Icon /><span>{item.label}</span></button>
           })}
         </nav>
       )}

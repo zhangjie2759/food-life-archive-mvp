@@ -11,6 +11,7 @@ function cameraErrorMessage(reason: unknown) {
 
 export function CameraCapture({ onCapture, onClose }: { onCapture: (file: File) => Promise<void>; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const importRef = useRef<HTMLInputElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const requestGeneration = useRef(0)
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
@@ -95,6 +96,14 @@ export function CameraCapture({ onCapture, onClose }: { onCapture: (file: File) 
     onClose()
   }
 
+  const importPhoto = async (file?: File) => {
+    if (!file) return
+    requestGeneration.current += 1
+    stopCamera()
+    setStatus('capturing')
+    await onCapture(file)
+  }
+
   return (
     <section className="camera-screen" data-testid="camera-screen">
       <div className="camera-topbar">
@@ -113,7 +122,8 @@ export function CameraCapture({ onCapture, onClose }: { onCapture: (file: File) 
         <button className="shutter" data-testid="camera-shutter" onClick={() => void takePhoto()} disabled={status !== 'ready'} aria-label="拍照">
           {status === 'capturing' ? <LoaderCircle className="spin" /> : <span />}
         </button>
-        <span>点击快门后再确认信息</span>
+        <button className="camera-import" onClick={() => importRef.current?.click()}>摄像头不可用？从相册导入</button>
+        <input ref={importRef} data-testid="camera-import-input" className="visually-hidden" type="file" accept="image/*" onChange={(event) => void importPhoto(event.currentTarget.files?.[0])} />
       </div>
     </section>
   )

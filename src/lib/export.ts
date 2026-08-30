@@ -15,15 +15,17 @@ export function createValidationExport(events: ValidationEvent[], now = new Date
     ...(comparisonCount === undefined ? {} : { comparisonCount }),
   }))
   const completed = safeEvents.filter((event) => event.type === 'ranking_completed')
-  const firstCompleted = [...completed].sort((a, b) => a.timestamp.localeCompare(b.timestamp))[0]
+  const saved = safeEvents.filter((event) => event.type === 'record_saved')
+  const firstSaved = [...saved].sort((a, b) => a.timestamp.localeCompare(b.timestamp))[0]
   return {
     schemaVersion: 1,
     exportedAt: now.toISOString(),
     summary: {
       eventCount: safeEvents.length,
+      savedRecords: saved.length,
       completedRankings: completed.length,
       deferredRankings: safeEvents.filter((event) => event.type === 'ranking_deferred').length,
-      firstRecordMs: firstCompleted?.elapsedMs ?? null,
+      firstRecordMs: firstSaved?.elapsedMs ?? null,
       medianComparisonCount: median(completed.flatMap((event) => event.comparisonCount === undefined ? [] : [event.comparisonCount])),
     },
     events: safeEvents,

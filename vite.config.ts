@@ -13,10 +13,10 @@ export default defineConfig({
         name: '我的味觉档案 · 验证版',
         short_name: '味觉档案',
         description: '把日常美食照片变成只属于你的味觉人生榜。',
-        theme_color: '#FFF7EC',
-        background_color: '#FFF7EC',
+        theme_color: '#111111',
+        background_color: '#FFFFFF',
         display: 'standalone',
-        start_url: './#/record',
+        start_url: './#/ranking',
         scope: './',
         orientation: 'portrait',
         icons: [

@@ -28,7 +28,7 @@ describe('record to ranking flow', () => {
     await resetAllData()
   })
 
-  it('restores an editable draft and completes the pairwise flow', async () => {
+  it('saves first, then starts pairwise review from the ranking home', async () => {
     const user = userEvent.setup()
     render(<App />)
     expect(await screen.findByTestId('draft-resume')).toBeInTheDocument()
@@ -37,35 +37,59 @@ describe('record to ranking flow', () => {
     await user.clear(input)
     await user.type(input, '雨天小馆的煲仔饭')
     await user.click(screen.getByTestId('confirm-entry'))
+    expect(await screen.findByTestId('completion-card')).toHaveTextContent('先记录')
+    expect((await db.entries.get((await db.entries.filter((entry) => entry.name === '雨天小馆的煲仔饭').first())!.id))?.rankStatus).toBe('pending')
+    await user.click(screen.getByTestId('view-ranking'))
+    await user.click(await screen.findByRole('button', { name: '开始复判雨天小馆的煲仔饭' }))
     await screen.findByTestId('comparison-view')
     for (let round = 0; round < 4 && screen.queryByTestId('choose-new'); round += 1) {
       await user.click(screen.getByTestId('choose-new'))
       await act(async () => undefined)
     }
-    expect(await screen.findByTestId('completion-card')).toHaveTextContent('人生榜第 1 位')
+    expect(await screen.findByTestId('completion-card')).toHaveTextContent('排在第 1 位')
     expect(await db.entries.filter((entry) => entry.name === '雨天小馆的煲仔饭').count()).toBe(1)
   })
 
-  it('places a deferred item in the pending list', async () => {
+  it('keeps an item pending when review is deferred', async () => {
     render(<App />)
     fireEvent.click(await screen.findByText('继续完成'))
     fireEvent.click(await screen.findByTestId('confirm-entry'))
+    fireEvent.click(await screen.findByTestId('view-ranking'))
+    fireEvent.click(await screen.findByRole('button', { name: '开始复判模拟菜名' }))
     fireEvent.click(await screen.findByTestId('choose-later'))
-    expect(await screen.findByTestId('completion-card')).toHaveTextContent('先留住')
-    await act(async () => { window.location.hash = '#/ranking'; window.dispatchEvent(new HashChangeEvent('hashchange')) })
+    expect(await screen.findByTestId('completion-card')).toHaveTextContent('先记录')
+    fireEvent.click(screen.getByTestId('view-ranking'))
     expect(await screen.findByTestId('pending-list')).toHaveTextContent('模拟菜名')
   })
 
-  it('does not let a delayed form autosave overwrite the comparison step', async () => {
+  it('does not let a delayed form autosave resurrect a saved draft', async () => {
     render(<App />)
     fireEvent.click(await screen.findByText('继续完成'))
     const input = await screen.findByTestId('food-name')
     fireEvent.change(input, { target: { value: '快速确认的一餐' } })
     fireEvent.click(screen.getByTestId('confirm-entry'))
-    expect(await screen.findByTestId('comparison-view')).toBeInTheDocument()
+    expect(await screen.findByTestId('completion-card')).toBeInTheDocument()
     await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 220)) })
-    expect((await db.drafts.get('active'))?.step).toBe('compare')
-    expect(screen.getByTestId('comparison-view')).toBeInTheDocument()
+    expect(await db.drafts.get('active')).toBeUndefined()
+    expect((await db.entries.filter((entry) => entry.name === '快速确认的一餐').first())?.rankStatus).toBe('pending')
+  })
+
+  it('moves a pending record into the private blacklist and restores it for review', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByText('继续完成'))
+    const input = await screen.findByTestId('food-name')
+    await user.clear(input)
+    await user.type(input, '难吃到想吐槽的一餐')
+    await user.click(screen.getByTestId('confirm-entry'))
+    await user.click(await screen.findByTestId('view-ranking'))
+    await user.click(await screen.findByRole('button', { name: '送进黑榜难吃到想吐槽的一餐' }))
+    await user.click(screen.getByTestId('period-blacklist'))
+    expect(await screen.findByTestId('blacklist-ranking')).toHaveTextContent('难吃到想吐槽的一餐')
+    const entry = await db.entries.filter((item) => item.name === '难吃到想吐槽的一餐').first()
+    expect(entry?.rankStatus).toBe('blacklisted')
+    await user.click(screen.getByRole('button', { name: '移出黑榜难吃到想吐槽的一餐' }))
+    await waitFor(async () => expect((await db.entries.get(entry!.id))?.rankStatus).toBe('pending'))
   })
 })
 
@@ -89,7 +113,8 @@ describe('first launch', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(await screen.findByText('空白开始'))
-    await user.click(await screen.findByTestId('start-record'))
+    expect(await screen.findByTestId('ranking-page')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '记录' }))
     await waitFor(async () => {
       expect(await db.events.where('type').equals('record_started').count()).toBe(1)
     })
@@ -124,9 +149,9 @@ describe('derived monthly ranking', () => {
     await resetAllData()
   })
 
-  it('derives the monthly slice from the full life ranking, not only Top 10', async () => {
+  it('derives the month ranking from the full life ranking, not only the former Top 10', async () => {
     render(<App />)
-    expect(await screen.findByTestId('monthly-ranking')).toHaveTextContent('人生榜外的本月新味道')
+    expect(await screen.findByTestId('period-ranking')).toHaveTextContent('人生榜外的本月新味道')
   })
 })
 
