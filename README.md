@@ -54,7 +54,7 @@ npm run preview -- --host 127.0.0.1 --port 4173
 
 Vite 基础路径固定为 `/food-life-archive-mvp/`，页面使用 Hash 导航，刷新不会产生静态路由 404。`.github/workflows/deploy.yml` 在 `main` 分支执行 lint、类型检查、单元测试、构建、Chromium/WebKit E2E，然后通过 GitHub Pages 官方 Actions 发布 `dist/`。
 
-计划地址：<https://zhangjie2759.github.io/food-life-archive-mvp/>
+线上地址：<https://zhangjie2759.github.io/food-life-archive-mvp/>
 
 ## 已知限制
 
@@ -68,4 +68,5 @@ Vite 基础路径固定为 `/food-life-archive-mvp/`，页面使用 Hash 导航�
 
 - 代码回退：在 Git 中回退到上一已知通过的提交并重新部署；数据模型当前为 Dexie schema v1，无远端迁移。
 - 用户验收：分别走一次“演示档案”和“空白开始”；完成新增、平局、稍后再比、刷新恢复、离线重载、匿名导出与清空。
-- 发布前必须由 reviewer 完成第一轮只读复核；本目录不会自行创建或推送远端仓库。
+- reviewer 第一轮只读复核为 `CONDITIONAL`、无阻塞项；GitHub Actions 的测试与 Pages 发布已通过。
+- Safari / iPhone 的真实摄像头权限、安装和离线重载仍需 Jay 真机验收。
