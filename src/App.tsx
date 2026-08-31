@@ -27,8 +27,9 @@ import {
 } from 'lucide-react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { CameraCapture } from './components/CameraCapture'
+import { ImageCropper } from './components/ImageCropper'
 import { db, completeOnboarding, deleteEntry, friendlyStorageError, resetAllData } from './data/db'
-import { compressImageToWebP } from './lib/image'
+import { compressImageToWebP, validateImageFile } from './lib/image'
 import { createValidationExport } from './lib/export'
 import { createRankingShareFile, shareOrDownloadRanking } from './lib/share'
 import { createId } from './lib/id'
@@ -574,6 +575,7 @@ export default function App() {
   const [error, setError] = useState('')
   const [completion, setCompletion] = useState<{ entryId: string; position?: number; pending?: boolean } | null>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
+  const [cropCandidate, setCropCandidate] = useState<File | null>(null)
   const [notice, setNotice] = useState('')
   const [bestowTarget, setBestowTarget] = useState<{ entry: FoodEntry; rank: number } | null>(null)
   const [ceremony, setCeremony] = useState<{ board: RankingBoard; rank: number; name: string } | null>(null)
@@ -608,6 +610,7 @@ export default function App() {
     setCompletion(null)
     setFlowOpen(false)
     setCameraOpen(false)
+    setCropCandidate(null)
     window.location.hash = `/${next}`
   }
 
@@ -620,6 +623,21 @@ export default function App() {
   const beginRecordAttempt = () => {
     recordStartedAt.current = new Date().toISOString()
     void addEvent('record_started')
+  }
+
+  const prepareCrop = (file?: File) => {
+    if (!file) {
+      setError('没有选择照片。你可以继续拍照，或稍后再记录。')
+      return
+    }
+    try {
+      validateImageFile(file)
+      setError('')
+      setCameraOpen(false)
+      setCropCandidate(file)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '无法读取这张照片。')
+    }
   }
 
   const handleFile = async (file?: File) => {
@@ -854,8 +872,14 @@ export default function App() {
   const anchor = anchorGroup ? entries.find((entry) => entry.id === anchorGroup.entryIds[0]) : undefined
 
   let content
-  if (tab === 'record' && cameraOpen) {
-    content = <CameraCapture onClose={() => go('ranking')} onCapture={async (file) => { setCameraOpen(false); await handleFile(file) }} />
+  if (tab === 'record' && cropCandidate) {
+    content = <ImageCropper
+      file={cropCandidate}
+      onCancel={() => { setCropCandidate(null); recordStartedAt.current = null }}
+      onConfirm={async (file) => { setCropCandidate(null); await addEvent('photo_cropped'); await handleFile(file) }}
+    />
+  } else if (tab === 'record' && cameraOpen) {
+    content = <CameraCapture onClose={() => go('ranking')} onCapture={async (file) => prepareCrop(file)} />
   } else if (tab === 'record' && completion && completionEntry) {
     content = <CompletionCard entry={completionEntry} position={completion.position} pending={completion.pending} onRanking={() => go('ranking')} onAgain={() => { setCompletion(null); setFlowOpen(false); beginRecordAttempt(); setCameraOpen(true) }} />
   } else if (tab === 'record' && flowOpen && draft?.step === 'form') {
@@ -863,7 +887,7 @@ export default function App() {
   } else if (tab === 'record' && flowOpen && draft?.step === 'compare' && anchor) {
     content = <ComparisonView draft={draft} anchor={anchor} busy={busy} onDecision={handleComparison} />
   } else if (tab === 'record') {
-    content = <RecordHome draft={draft} entries={entries} onStart={beginRecordAttempt} onOpenCamera={() => setCameraOpen(true)} onFile={handleFile} onResume={() => setFlowOpen(true)} onDiscard={discardDraft} />
+    content = <RecordHome draft={draft} entries={entries} onStart={beginRecordAttempt} onOpenCamera={() => setCameraOpen(true)} onFile={prepareCrop} onResume={() => setFlowOpen(true)} onDiscard={discardDraft} />
   } else if (tab === 'archive') {
     content = <ArchivePage entries={entries} onDelete={handleDelete} />
   } else if (tab === 'ranking') {
@@ -888,7 +912,7 @@ export default function App() {
       {notice && <div className="status-toast notice">{notice}</div>}
       {error && <ErrorBanner message={error} onDismiss={() => setError('')} />}
       <main className="page-content">{busy && tab === 'record' && !flowOpen && <div className="processing"><LoaderCircle className="spin" /><strong>正在压缩与识别照片</strong><span>{realAiEnabled ? '正在等待 Gemini 返回标准分类' : '公网 AI 后端未连接，将进入手动核准'}</span></div>}{content}</main>
-      {!flowOpen && !completion && !cameraOpen && (
+      {!flowOpen && !completion && !cameraOpen && !cropCandidate && (
         <nav className="bottom-nav" aria-label="主要导航">
           {navItems.map((item) => {
             const Icon = item.icon

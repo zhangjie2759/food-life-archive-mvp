@@ -1,5 +1,53 @@
 const MAX_EDGE = 1600
 
+export interface SquareCropTransform {
+  naturalWidth: number
+  naturalHeight: number
+  viewportSize: number
+  zoom: number
+  offsetX: number
+  offsetY: number
+}
+
+export interface SquareCropRegion {
+  sourceX: number
+  sourceY: number
+  sourceSize: number
+  scale: number
+}
+
+export function validateImageFile(file: File) {
+  if (!file.type.startsWith('image/')) throw new Error('请选择 JPG、PNG、HEIC 或 WebP 图片。')
+  if (file.size > 25 * 1024 * 1024) throw new Error('图片超过 25MB，请先缩小后再试。')
+}
+
+export function cropOffsetLimits(naturalWidth: number, naturalHeight: number, viewportSize: number, zoom: number) {
+  const baseScale = Math.max(viewportSize / naturalWidth, viewportSize / naturalHeight)
+  const scale = baseScale * zoom
+  return {
+    x: Math.max(0, (naturalWidth * scale - viewportSize) / 2),
+    y: Math.max(0, (naturalHeight * scale - viewportSize) / 2),
+  }
+}
+
+export function calculateSquareCropRegion(transform: SquareCropTransform): SquareCropRegion {
+  const { naturalWidth, naturalHeight, viewportSize, zoom } = transform
+  const baseScale = Math.max(viewportSize / naturalWidth, viewportSize / naturalHeight)
+  const scale = baseScale * zoom
+  const limits = cropOffsetLimits(naturalWidth, naturalHeight, viewportSize, zoom)
+  const offsetX = Math.max(-limits.x, Math.min(limits.x, transform.offsetX))
+  const offsetY = Math.max(-limits.y, Math.min(limits.y, transform.offsetY))
+  const displayedWidth = naturalWidth * scale
+  const displayedHeight = naturalHeight * scale
+  const sourceSize = viewportSize / scale
+  return {
+    sourceX: Math.max(0, Math.min(naturalWidth - sourceSize, ((displayedWidth - viewportSize) / 2 - offsetX) / scale)),
+    sourceY: Math.max(0, Math.min(naturalHeight - sourceSize, ((displayedHeight - viewportSize) / 2 - offsetY) / scale)),
+    sourceSize,
+    scale,
+  }
+}
+
 function readAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -20,8 +68,7 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 }
 
 export async function compressImageToWebP(file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('请选择 JPG、PNG、HEIC 或 WebP 图片。')
-  if (file.size > 25 * 1024 * 1024) throw new Error('图片超过 25MB，请先缩小后再试。')
+  validateImageFile(file)
 
   let source: CanvasImageSource
   let sourceWidth: number

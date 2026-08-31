@@ -50,6 +50,7 @@ export type ValidationEventType =
   | 'onboarding_completed'
   | 'record_started'
   | 'photo_selected'
+  | 'photo_cropped'
   | 'suggestion_ready'
   | 'entry_confirmed'
   | 'record_saved'

@@ -17,6 +17,12 @@ async function chooseNewUntilCeremony(page: Page) {
   }
 }
 
+async function confirmCrop(page: Page) {
+  await expect(page.getByTestId('image-cropper')).toBeVisible()
+  await expect(page.getByTestId('crop-confirm')).toBeEnabled()
+  await page.getByTestId('crop-confirm').click()
+}
+
 test.beforeEach(async ({ page, context }) => {
   await context.clearCookies()
   await page.goto('./favicon.svg')
@@ -37,6 +43,7 @@ test('mobile core flow: photo, editable mock suggestion, comparisons, ranking', 
   await expect(page.getByTestId('ranking-page')).toBeVisible()
   await page.getByRole('button', { name: '记录' }).click()
   await page.getByTestId('camera-import-input').setInputFiles(testPhoto)
+  await confirmCrop(page)
   await expect(page.getByTestId('suggestion-form')).toBeVisible()
   await expect(page.getByText(/AI 未连接/)).toBeVisible()
   await page.getByTestId('food-name').fill('雨夜的煲仔饭')
@@ -61,6 +68,7 @@ test('defer keeps the entry locally in pending', async ({ page }) => {
   await page.getByTestId('load-demo').click()
   await page.getByRole('button', { name: '记录' }).click()
   await page.getByTestId('camera-import-input').setInputFiles(testPhoto)
+  await confirmCrop(page)
   await page.getByTestId('food-name').fill('以后再决定的味道')
   await page.getByTestId('confirm-entry').click()
   await page.getByTestId('view-ranking').click()
@@ -81,6 +89,7 @@ test('camera-first flow opens a live viewfinder and captures into ranking', asyn
   await expect(page.getByTestId('camera-viewfinder')).toBeVisible()
   await expect(page.getByTestId('camera-shutter')).toBeEnabled()
   await page.getByTestId('camera-shutter').click()
+  await confirmCrop(page)
   await expect(page.getByTestId('suggestion-form')).toBeVisible()
   await page.getByTestId('food-name').fill('摄像头拍下的味道')
   await page.getByTestId('confirm-entry').click()
@@ -126,6 +135,7 @@ test('pending food can enter the private blacklist, reorder and export', async (
   await page.getByTestId('load-demo').click()
   await page.getByRole('button', { name: '记录' }).click()
   await page.getByTestId('camera-import-input').setInputFiles(testPhoto)
+  await confirmCrop(page)
   await page.getByTestId('food-name').fill('这次真的踩雷了')
   await page.getByTestId('confirm-entry').click()
   await page.getByTestId('view-ranking').click()
