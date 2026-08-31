@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "food-life-archive-ai",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-08-31",
+  "workers_dev": true,
+  "preview_urls": true,
+  "vars": {
+    "AI_MODEL": "gemini-3.6-flash"
+  }
+}

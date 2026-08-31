@@ -8,7 +8,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'worker/**/*.test.mjs'],
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,

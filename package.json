@@ -12,7 +12,10 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest",
     "test:run": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "worker:dev": "wrangler dev --config worker/wrangler.jsonc",
+    "worker:deploy": "wrangler deploy --config worker/wrangler.jsonc",
+    "worker:secret": "wrangler secret put AI_API_KEY --config worker/wrangler.jsonc"
   },
   "dependencies": {
     "dexie": "^4.0.11",
@@ -41,6 +44,7 @@
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.18.2",
     "vite": "^6.0.5",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.127.1"
   }
 }
