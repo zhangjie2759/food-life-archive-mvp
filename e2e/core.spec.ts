@@ -53,7 +53,7 @@ async function rankingState(page: Page) {
   }))
 }
 
-test.beforeEach(async ({ page, context }) => {
+test.beforeEach(async ({ page, context }, testInfo) => {
   await context.clearCookies()
   await page.goto('./favicon.svg')
   await page.evaluate(() => new Promise<void>((resolve, reject) => {
@@ -65,7 +65,9 @@ test.beforeEach(async ({ page, context }) => {
   await page.evaluate(() => {
     localStorage.clear()
   })
-  await page.goto('./#/record')
+  if (testInfo.title !== 'explicit ranking and archive deep links do not reopen the camera') {
+    await page.goto('./#/record')
+  }
 })
 
 test('mobile core flow: photo, editable mock suggestion, comparisons, ranking', async ({ page }) => {
