@@ -471,3 +471,129 @@ body { color: var(--charcoal); background: var(--paper); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Phase 1.2 · Miniature Chef Tribe */
+.chef-mascot { display: inline-block; width: 92px; aspect-ratio: 1; flex: 0 0 auto; background-repeat: no-repeat; background-size: 400% 300%; }
+.section-mascot { height: 72px; display: flex; justify-content: flex-end; margin-bottom: -54px; pointer-events: none; }
+.section-mascot .chef-mascot { width: 82px; }
+.ai-mascot { height: 72px; display: flex; justify-content: flex-end; margin: -12px 4px -45px 0; pointer-events: none; }
+.ai-mascot .chef-mascot { width: 88px; }
+.duel-mascots { height: 42px; display: flex; justify-content: space-between; margin: -8px 8% -30px; pointer-events: none; }
+.duel-mascots .chef-mascot { width: 88px; }
+.camera-mascot { position: absolute; z-index: 3; right: 12px; bottom: 10px; width: 84px; border-radius: 50%; background-color: rgba(255,255,255,.9); box-shadow: 0 0 0 3px #fff; }
+
+.ranking-masthead { align-items: center; }
+.ranking-brand { display: flex; align-items: center; gap: 8px; }
+.ranking-brand .chef-mascot { width: 48px; }
+.ranking-brand strong, .ranking-brand small { display: block; }
+.ranking-brand strong { font-size: 19px; letter-spacing: -.04em; }
+.ranking-masthead > b { align-self: center; color: var(--seal-red); font-size: 13px; }
+.review-queue { position: relative; overflow: hidden; }
+.queue-mascot { position: absolute; top: -12px; right: 4px; width: 78px; opacity: .92; pointer-events: none; }
+.rank-photo-button, .archive-photo-button, .rank-entry-button, .archive-entry-button { padding: 0; border: 0; color: inherit; background: transparent; text-align: left; }
+.rank-photo-button { grid-row: 1 / 3; width: 48px; height: 64px; overflow: hidden; }
+.rank-photo-button img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.82) contrast(1.04); }
+.rank-entry-button { display: block; width: 100%; min-width: 0; }
+.rank-entry-button strong, .rank-entry-button small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-entry-button strong { font-size: 14px; }
+.rank-entry-button small { margin-top: 4px; color: #686868; font-size: 9px; }
+.official-row > img { display: none; }
+
+.archive-photo-button { width: 105px; height: 118px; overflow: hidden; border-radius: 14px; }
+.archive-photo-button img { width: 100%; height: 100%; object-fit: cover; }
+.archive-entry-button { width: calc(100% - 28px); }
+.archive-entry-button h2 { margin: 0; }
+.archive-entry-button small { display: block; margin-top: 4px; color: #888; font-size: 10px; }
+.archive-mascot { margin-bottom: -58px; }
+
+.taste-report { margin: 4px 0 22px; border: 1px solid var(--charcoal); background: #fff; }
+.taste-report summary { min-height: 82px; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 8px 16px; cursor: pointer; list-style: none; }
+.taste-report summary::-webkit-details-marker { display: none; }
+.taste-report summary small, .taste-report summary strong { display: block; }
+.taste-report summary small { margin-bottom: 5px; color: var(--seal-red); font-size: 8px; font-weight: 900; letter-spacing: .14em; }
+.taste-report summary strong { font-size: 18px; }
+.taste-report summary .chef-mascot { width: 72px; }
+.report-bars { display: grid; gap: 10px; padding: 4px 16px 18px; border-top: 1px solid #ddd; }
+.report-bars > div { display: grid; grid-template-columns: 64px minmax(0,1fr) 40px; align-items: center; gap: 8px; padding-top: 10px; font-size: 11px; }
+.report-bars i { height: 7px; overflow: hidden; background: #e9e9e9; }
+.report-bars i b { display: block; height: 100%; background: var(--seal-red); }
+.report-bars strong { text-align: right; }
+.report-stats { display: grid; grid-template-columns: repeat(3,1fr); border-top: 1px solid #ddd; }
+.report-stats div { padding: 13px 8px; border-right: 1px solid #ddd; text-align: center; }
+.report-stats div:last-child { border-right: 0; }
+.report-stats strong, .report-stats span { display: block; }
+.report-stats strong { font-size: 23px; }
+.report-stats span { margin-top: 3px; color: #777; font-size: 9px; }
+
+.entry-detail { position: fixed; z-index: 82; inset: 0 auto 0 50%; width: min(760px,100%); min-height: 100svh; overflow-y: auto; transform: translateX(-50%); padding-bottom: max(34px,env(safe-area-inset-bottom)); color: var(--charcoal); background: var(--paper); }
+.detail-topbar { position: sticky; z-index: 2; top: 0; min-height: 66px; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; padding: max(8px,env(safe-area-inset-top)) 14px 8px; border-bottom: 1px solid #ccc; background: rgba(244,241,233,.96); backdrop-filter: blur(12px); }
+.detail-topbar button { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; }
+.detail-topbar > button:last-child { justify-self: end; }
+.detail-topbar div { text-align: center; }
+.detail-topbar small, .detail-topbar strong { display: block; }
+.detail-topbar small { color: var(--seal-red); font-size: 8px; letter-spacing: .15em; }
+.detail-topbar strong { margin-top: 3px; font-size: 15px; }
+.detail-photo { position: relative; width: 100%; height: min(46svh,430px); display: block; padding: 0; border: 0; background: #111; }
+.detail-photo img { width: 100%; height: 100%; object-fit: cover; }
+.detail-photo span { position: absolute; right: 14px; bottom: 14px; min-height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; color: #fff; background: rgba(0,0,0,.72); font-size: 11px; }
+.detail-photo svg { width: 15px; }
+.detail-identity, .detail-facts, .detail-edit-form { padding: 20px; }
+.detail-identity { padding-bottom: 12px; border-bottom: 1px solid #bbb; }
+.detail-identity > span { color: var(--seal-red); font-size: 10px; font-weight: 900; letter-spacing: .14em; }
+.detail-identity h1 { margin: 9px 0 4px; font-size: clamp(30px,9vw,48px); letter-spacing: -.06em; line-height: 1; }
+.detail-identity p { margin: 0; color: #777; font-size: 12px; }
+.detail-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #bbb; }
+.detail-facts > div { min-height: 86px; padding: 14px; background: var(--paper); }
+.detail-facts > div:nth-child(3), .detail-facts blockquote, .detail-facts .tag-row, .detail-bestow { grid-column: 1 / -1; }
+.detail-facts small, .detail-facts strong { display: block; }
+.detail-facts small { margin-bottom: 7px; color: #888; font-size: 8px; letter-spacing: .13em; }
+.detail-facts strong { font-size: 13px; }
+.detail-facts blockquote { margin: 0; padding: 18px; background: #fff; font-family: "Songti SC","STSong",serif; font-size: 17px; }
+.detail-facts .tag-row { padding: 14px; background: var(--paper); }
+.detail-bestow { min-height: 82px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--champagne); color: #6e592f; background: #fff; font-weight: 900; }
+.detail-bestow .chef-mascot { width: 72px; }
+.detail-edit-form { display: grid; gap: 13px; }
+.detail-edit-form label { display: grid; gap: 6px; font-size: 11px; font-weight: 800; }
+.detail-edit-form input, .detail-edit-form textarea, .detail-edit-form select { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #aaa; border-radius: 0; color: #111; background: #fff; font: inherit; }
+.detail-edit-form textarea { min-height: 92px; resize: vertical; }
+.detail-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.replace-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.replace-actions button { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #111; background: transparent; font-weight: 800; }
+.replace-actions svg { width: 18px; }
+
+.photo-viewer { position: fixed; z-index: 110; inset: 0; color: #fff; background: #050505; }
+.photo-viewer-stage { width: 100%; height: 100%; display: grid; place-items: center; overflow: hidden; touch-action: none; }
+.photo-viewer-stage img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; will-change: transform; transition: transform .12s ease-out; }
+.viewer-close { position: absolute; top: max(14px,env(safe-area-inset-top)); right: 14px; width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid #666; border-radius: 50%; color: #fff; background: rgba(0,0,0,.68); }
+.viewer-controls { position: absolute; left: 50%; bottom: max(20px,env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 4px; transform: translateX(-50%); padding: 5px; border: 1px solid #555; background: rgba(0,0,0,.76); }
+.viewer-controls button { width: 46px; height: 46px; display: grid; place-items: center; border: 0; color: #fff; background: transparent; }
+.viewer-controls span { min-width: 52px; font-size: 11px; text-align: center; }
+.viewer-controls button:disabled { opacity: .28; }
+
+.bestow-heading { min-height: 88px; display: flex; align-items: center; gap: 8px; }
+.bestow-heading .chef-mascot { width: 86px; }
+.bestow-heading small, .bestow-heading strong { display: block; }
+.bestow-heading small { color: var(--seal-red); font-size: 9px; letter-spacing: .16em; }
+.bestow-heading strong { margin-top: 5px; font-family: "Songti SC","STSong",serif; font-size: 26px; }
+.ceremony-mascot { position: absolute; z-index: -1; bottom: 5%; right: max(8px,calc(50% - 330px)); width: min(42vw,230px); opacity: .8; animation: miniature-arrive 1s .8s cubic-bezier(.16,.8,.2,1) both; }
+.leader-emblem { position: absolute; z-index: 2; top: 18%; left: 50%; width: 92px; height: 60px; transform: translateX(-50%); animation: crown-land .9s .85s cubic-bezier(.12,.9,.22,1) both; }
+.leader-emblem i { position: absolute; bottom: 0; width: 31px; height: 50px; background: var(--seal-red); clip-path: polygon(50% 0,100% 100%,0 100%); }
+.leader-emblem i:nth-child(1) { left: 0; transform: rotate(-12deg); }
+.leader-emblem i:nth-child(2) { left: 30px; height: 60px; }
+.leader-emblem i:nth-child(3) { right: 0; transform: rotate(12deg); }
+.leader-emblem.black i { background: #d7d7d7; clip-path: inset(0 5px 0); }
+@keyframes miniature-arrive { from { opacity: 0; transform: translateX(60px) rotate(8deg); } to { opacity: .8; transform: translateX(0) rotate(0); } }
+@keyframes crown-land { from { opacity: 0; transform: translate(-50%,-80px) scale(1.5); } 70% { opacity: 1; transform: translate(-50%,7px) scale(.92); } to { opacity: 1; transform: translate(-50%,0) scale(1); } }
+
+@media (min-width: 640px) {
+  .archive-photo-button { width: 135px; height: 130px; }
+}
+@media (max-width: 370px) {
+  .archive-photo-button { width: 88px; height: 108px; }
+  .detail-form-grid { grid-template-columns: 1fr; }
+  .chef-mascot { width: 76px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .photo-viewer-stage img { transition: none; }
+  .ceremony-mascot, .leader-emblem { animation: none; }
+}

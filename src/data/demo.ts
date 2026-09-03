@@ -41,9 +41,11 @@ export function createDemoData(): { entries: FoodEntry[]; groups: RankGroup[] } 
     return {
       ...item,
       ...classification[item.id],
+      name: classification[item.id].aiName,
       image: `${base}demo/${item.image}`,
       occurredAt: createdAt.slice(0, 10),
       createdAt,
+      updatedAt: createdAt,
       isDemo: true,
       rankStatus: 'ranked' as const,
       board: isBlack ? 'black' as const : 'red' as const,

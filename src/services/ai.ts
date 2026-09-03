@@ -1,4 +1,5 @@
 import type { AiSuggestion, AiSuggestionProvider } from '../types'
+import { localDateKey } from '../lib/date'
 
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -13,7 +14,7 @@ export class MockAiSuggestionProvider implements AiSuggestionProvider {
   async analyze(file: File): Promise<AiSuggestion> {
     void file
     await new Promise((resolve) => setTimeout(resolve, 320))
-    const occurredAt = new Date().toISOString().slice(0, 10)
+    const occurredAt = localDateKey()
     return {
       providerLabel: 'AI 未连接 · 手动核准模式',
       fields: {
@@ -62,7 +63,7 @@ export class HttpAiSuggestionProvider implements AiSuggestionProvider {
         tags: [String(payload.foodGroup || '其他'), String(payload.diet || '不确定')],
         note: '',
         emotion: '待确认',
-        occurredAt: new Date().toISOString().slice(0, 10),
+        occurredAt: localDateKey(),
       },
     }
   }

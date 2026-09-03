@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { completeOnboarding, db, resetAllData } from './data/db'
 import type { FoodEntry, RankGroup } from './types'
+import { localMonthKey } from './lib/date'
 
 vi.mock('virtual:pwa-register/react', () => ({
   useRegisterSW: () => ({
@@ -100,15 +101,40 @@ describe('record to ranking flow', () => {
     window.location.hash = '#/ranking'
     const user = userEvent.setup()
     render(<App />)
-    const buttons = await screen.findAllByRole('button', { name: '重新定名' })
+    const buttons = await screen.findAllByRole('button', { name: '重新赐名' })
     await user.click(buttons[0])
     const input = await screen.findByLabelText('正式赐名')
     await user.clear(input)
     await user.type(input, '正式册封的红烧肉')
     await user.click(screen.getByRole('button', { name: '确认定名' }))
-    const entry = await db.entries.filter((item) => item.name === '正式册封的红烧肉').first()
+    const entry = await db.entries.filter((item) => item.bestowedName === '正式册封的红烧肉').first()
     expect(entry?.bestowedName).toBe('正式册封的红烧肉')
     expect(entry?.aiName).toBe('红烧肉')
+    expect(entry?.name).toBe('红烧肉')
+  })
+
+  it('opens a zoomable photo and edits archive content without changing rank groups', async () => {
+    window.location.hash = '#/ranking'
+    const firstGroup = (await db.rankGroups.where('board').equals('red').sortBy('order'))[0]
+    const entryId = firstGroup.entryIds[0]
+    const beforeGroups = JSON.stringify(await db.rankGroups.orderBy('order').toArray())
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByTestId(`view-photo-${entryId}`))
+    expect(await screen.findByTestId('photo-viewer')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('放大图片'))
+    expect(screen.getByText('150%')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('关闭大图'))
+    await user.click(screen.getByTestId(`open-entry-${entryId}`))
+    await user.click(await screen.findByLabelText('编辑食物档案'))
+    const name = screen.getByTestId('edit-name')
+    await user.clear(name)
+    await user.type(name, '重新核准的标准名称')
+    fireEvent.change(screen.getByTestId('edit-tags'), { target: { value: '夜宵、救命' } })
+    await user.click(screen.getByTestId('save-entry-edit'))
+    expect((await db.entries.get(entryId))?.name).toBe('重新核准的标准名称')
+    expect((await db.entries.get(entryId))?.tags).toEqual(['夜宵', '救命'])
+    expect(JSON.stringify(await db.rankGroups.orderBy('order').toArray())).toBe(beforeGroups)
   })
 })
 
@@ -122,20 +148,17 @@ describe('first launch', () => {
     await resetAllData()
   })
 
-  it('shows onboarding instead of an endless loading state on an empty database', async () => {
+  it('opens the camera immediately instead of blocking on onboarding', async () => {
     render(<App />)
-    expect(await screen.findByTestId('onboarding')).toBeInTheDocument()
-    expect(screen.getByText('空白开始')).toBeInTheDocument()
+    expect(await screen.findByTestId('camera-screen')).toBeInTheDocument()
+    expect(screen.getByText('拍下这道菜')).toBeInTheDocument()
   })
 
-  it('starts validation timing when the user opens the photo picker', async () => {
-    const user = userEvent.setup()
+  it('starts validation timing on automatic camera launch', async () => {
     render(<App />)
-    await user.click(await screen.findByText('空白开始'))
-    expect(await screen.findByTestId('ranking-page')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '记录' }))
     await waitFor(async () => {
       expect(await db.events.where('type').equals('record_started').count()).toBe(1)
+      expect(await db.events.where('type').equals('camera_auto_opened').count()).toBe(1)
     })
   })
 })
@@ -145,7 +168,7 @@ describe('derived monthly ranking', () => {
     window.location.hash = '#/ranking'
     await resetAllData()
     await completeOnboarding('empty')
-    const currentMonth = new Date().toISOString().slice(0, 7)
+    const currentMonth = localMonthKey()
     const entries: FoodEntry[] = Array.from({ length: 11 }, (_, index) => ({
       id: `food-${index}`,
       image: 'data:image/webp;base64,dGVzdA==',
@@ -176,6 +199,7 @@ describe('derived monthly ranking', () => {
   it('treats the visible month leader as NO.01 for the highest ceremony', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await user.click(await screen.findByTestId('period-month'))
     await user.click(await screen.findByLabelText('上移人生榜外的本月新味道'))
     expect(await screen.findByTestId('ranking-ceremony')).toHaveTextContent('榜首易主')
     expect(screen.getByTestId('ranking-ceremony')).toHaveClass('apex')
@@ -187,7 +211,7 @@ describe('black list rank ceremony', () => {
     window.location.hash = '#/ranking'
     await resetAllData()
     await completeOnboarding('empty')
-    const occurredAt = `${new Date().toISOString().slice(0, 7)}-01`
+    const occurredAt = `${localMonthKey()}-01`
     const entries: FoodEntry[] = ['还能接受的踩雷', '新晋最差纪录'].map((name, index) => ({
       id: `black-${index}`,
       image: 'data:image/webp;base64,dGVzdA==',
@@ -248,7 +272,6 @@ describe('live camera entry', () => {
   it('opens the environment camera as the primary recording flow and stops it on close', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(await screen.findByTestId('start-record'))
     expect(await screen.findByTestId('camera-screen')).toBeInTheDocument()
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledWith(expect.objectContaining({
       audio: false,
@@ -264,7 +287,6 @@ describe('live camera entry', () => {
     getUserMedia.mockReturnValue(new Promise<MediaStream>((resolve) => { resolveCamera = resolve }))
     const user = userEvent.setup()
     render(<App />)
-    await user.click(await screen.findByTestId('start-record'))
     expect(await screen.findByTestId('camera-screen')).toBeInTheDocument()
     await user.click(screen.getByLabelText('关闭摄像头'))
     resolveCamera({ getTracks: () => [{ stop }] } as unknown as MediaStream)
@@ -274,9 +296,7 @@ describe('live camera entry', () => {
 
   it('shows a useful message when camera permission is denied', async () => {
     getUserMedia.mockRejectedValue(new DOMException('denied', 'NotAllowedError'))
-    const user = userEvent.setup()
     render(<App />)
-    await user.click(await screen.findByTestId('start-record'))
     expect(await screen.findByText(/摄像头权限被拒绝/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '重新尝试' })).toBeInTheDocument()
   })

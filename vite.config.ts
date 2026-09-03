@@ -15,13 +15,13 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: '私人美食评审局 · 试行版',
-        short_name: '美食评审局',
+        name: '我的美食榜 · 私人美食评审局',
+        short_name: '我的美食榜',
         description: '拍照、识别、比较、入榜；建立只服务于你的红榜与黑榜。',
         theme_color: '#111111',
         background_color: '#FFFFFF',
         display: 'standalone',
-        start_url: './#/ranking',
+        start_url: './#/record',
         scope: './',
         orientation: 'portrait',
         icons: [

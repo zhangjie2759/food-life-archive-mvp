@@ -19,6 +19,7 @@ export interface FoodEntry {
   emotion: Emotion
   occurredAt: string
   createdAt: string
+  updatedAt?: string
   isDemo: boolean
   rankStatus: RankStatus
   board?: RankingBoard
@@ -60,6 +61,12 @@ export type ValidationEventType =
   | 'ranking_viewed'
   | 'name_bestowed'
   | 'board_selected'
+  | 'camera_auto_opened'
+  | 'draft_restored'
+  | 'photo_viewed'
+  | 'entry_edited'
+  | 'photo_replaced'
+  | 'share_generated'
 
 export interface ValidationEvent {
   id: string
@@ -92,10 +99,13 @@ export interface RankingProgress {
 
 export interface FoodDraft {
   id: 'active'
-  step: 'form' | 'compare'
+  step: 'crop' | 'analyzing' | 'form' | 'compare'
   image: string
   fields: FoodDraftFields
   startedAt: string
+  sourceFile?: Blob
+  sourceDataUrl?: string
+  sourceName?: string
   entryId?: string
   ranking?: RankingProgress
   targetBoard?: RankingBoard

@@ -48,6 +48,23 @@ export class FoodArchiveDB extends Dexie {
         createdAt: entry.blacklistedAt ?? entry.createdAt,
       })))
     })
+    this.version(3).stores({
+      entries: 'id, createdAt, occurredAt, isDemo, rankStatus, board, cuisine, type, foodGroup, diet',
+      rankGroups: 'id, [board+order], board, order, createdAt',
+      comparisons: 'id, leftEntryId, rightEntryId, createdAt',
+      drafts: 'id, step, targetBoard',
+      events: 'id, type, timestamp',
+      settings: 'key',
+    }).upgrade(async (transaction) => {
+      const entryTable = transaction.table<FoodEntry, string>('entries')
+      const entries = await entryTable.toArray()
+      const migratedAt = new Date().toISOString()
+      await entryTable.bulkPut(entries.map((entry) => ({
+        ...entry,
+        name: entry.bestowedName && entry.name === entry.bestowedName && entry.aiName ? entry.aiName : entry.name,
+        updatedAt: entry.updatedAt ?? entry.createdAt ?? migratedAt,
+      })))
+    })
   }
 }
 
@@ -101,4 +118,8 @@ export async function deleteEntry(entryId: string): Promise<void> {
     const draft = await db.drafts.get('active')
     if (draft?.entryId === entryId) await db.drafts.delete('active')
   })
+}
+
+export async function updateEntryContent(entryId: string, changes: Pick<FoodEntry, 'name' | 'location' | 'occurredAt' | 'cuisine' | 'tags' | 'emotion'> & Partial<Pick<FoodEntry, 'type' | 'foodGroup' | 'diet' | 'note' | 'image'>>): Promise<void> {
+  await db.entries.update(entryId, { ...changes, updatedAt: new Date().toISOString() })
 }

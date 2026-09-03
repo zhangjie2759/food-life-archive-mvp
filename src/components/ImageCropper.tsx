@@ -17,10 +17,11 @@ function canvasToWebP(canvas: HTMLCanvasElement): Promise<Blob> {
   })
 }
 
-export function ImageCropper({ file, onConfirm, onCancel }: {
+export function ImageCropper({ file, onConfirm, onCancel, purpose = 'recognize' }: {
   file: File
   onConfirm: (file: File) => Promise<void>
   onCancel: () => void
+  purpose?: 'recognize' | 'replace'
 }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
@@ -137,7 +138,7 @@ export function ImageCropper({ file, onConfirm, onCancel }: {
     <section className="crop-screen" data-testid="image-cropper">
       <div className="crop-topbar">
         <button className="camera-icon-button" onClick={onCancel} aria-label="取消裁剪"><X /></button>
-        <div><strong>锁定这一道菜</strong><span>移动并缩放，只保留需要识别的食物</span></div>
+        <div><strong>框准要识别的这一道</strong><span>{purpose === 'replace' ? '移动并缩放，确认新的档案照片' : '移动并缩放，只把框内食物交给 AI'}</span></div>
         <button className="camera-icon-button" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }) }} disabled={busy} aria-label="重置裁剪"><RotateCcw /></button>
       </div>
 
@@ -173,7 +174,7 @@ export function ImageCropper({ file, onConfirm, onCancel }: {
         {error && <p className="crop-error" role="alert">{error}</p>}
         <label className="crop-zoom"><span>缩放</span><input data-testid="crop-zoom" type="range" min="1" max="3" step="0.01" value={zoom} disabled={busy || Boolean(error)} onChange={(event) => setZoom(Number(event.target.value))} /></label>
         <button className="crop-confirm" data-testid="crop-confirm" disabled={busy || Boolean(error) || !naturalSize.width} onClick={() => void confirm()}>
-          {busy ? <LoaderCircle className="spin" /> : <><Crop /><span>裁剪并识别</span><Check /></>}
+          {busy ? <LoaderCircle className="spin" /> : <><Crop /><span>{purpose === 'replace' ? '裁剪并替换' : '裁剪并识别'}</span><Check /></>}
         </button>
         <button className="crop-cancel" disabled={busy} onClick={onCancel}>重拍或换一张</button>
       </div>

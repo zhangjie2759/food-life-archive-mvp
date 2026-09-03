@@ -48,7 +48,7 @@ export function calculateSquareCropRegion(transform: SquareCropTransform): Squar
   }
 }
 
-function readAsDataUrl(blob: Blob): Promise<string> {
+export function readAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(new Error('图片读取失败，请重新选择。'))

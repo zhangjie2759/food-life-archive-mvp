@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, LoaderCircle, RefreshCw, X } from 'lucide-react'
+import { Mascot } from './Mascot'
 
 type CameraStatus = 'starting' | 'ready' | 'capturing' | 'error'
 
@@ -108,17 +109,18 @@ export function CameraCapture({ onCapture, onClose }: { onCapture: (file: File) 
     <section className="camera-screen" data-testid="camera-screen">
       <div className="camera-topbar">
         <button className="camera-icon-button" onClick={close} aria-label="关闭摄像头"><X /></button>
-        <div><strong>提交食物证据</strong><span>拍摄后进入 AI 识别与人工核准</span></div>
+        <div><strong>拍下这道菜</strong><span>只记录，吃完再排</span></div>
         <button className="camera-icon-button" data-testid="camera-switch" onClick={() => setFacingMode((current) => current === 'environment' ? 'user' : 'environment')} disabled={status === 'starting' || status === 'capturing'} aria-label="切换前后摄像头"><RefreshCw /></button>
       </div>
       <div className="camera-viewfinder">
         <video ref={videoRef} data-testid="camera-viewfinder" autoPlay muted playsInline aria-label="实时摄像头取景" />
         {status === 'starting' && <div className="camera-state"><LoaderCircle className="spin" /><span>正在打开摄像头…</span></div>}
-        {status === 'error' && <div className="camera-state error"><Camera /><strong>摄像头没有打开</strong><span>{error}</span><button className="button secondary" onClick={() => void startCamera(facingMode)}>重新尝试</button></div>}
+        {status === 'error' && <div className="camera-state error"><Camera /><strong>摄像头没有打开</strong><span>{error}</span><button className="button secondary" onClick={() => void startCamera(facingMode)}>重新尝试</button><button className="text-button" onClick={close}>进入榜单</button></div>}
         <div className="camera-guide" aria-hidden="true" />
+        <Mascot pose="camera" className="camera-mascot" />
       </div>
       <div className="camera-controls">
-        <span>把食物放进画面中央</span>
+        <span>把这一道菜放进画面中央</span>
         <button className="shutter" data-testid="camera-shutter" onClick={() => void takePhoto()} disabled={status !== 'ready'} aria-label="拍照">
           {status === 'capturing' ? <LoaderCircle className="spin" /> : <span />}
         </button>

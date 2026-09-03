@@ -22,6 +22,6 @@ describe('ranking share model', () => {
     }
     const model = buildRankingShareModel([entry], '黑榜', '人生避雷')
     expect(model.title).toBe('我的黑榜')
-    expect(model.subtitle).toContain('只代表我的味觉和这一次体验')
+    expect(model.subtitle).toContain('仅代表个人口味与单次体验')
   })
 })
