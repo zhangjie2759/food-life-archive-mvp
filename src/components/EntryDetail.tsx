@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Camera, Check, ImagePlus, Maximize2, PenLine, X } from 'lucide-react'
 import type { Emotion, FoodEntry } from '../types'
-import { Mascot } from './Mascot'
 
 export type EntryContentChanges = Pick<FoodEntry, 'name' | 'location' | 'occurredAt' | 'cuisine' | 'tags' | 'emotion'> & Partial<Pick<FoodEntry, 'type' | 'foodGroup' | 'diet' | 'note'>>
 
@@ -73,7 +72,7 @@ export function EntryDetail({ entry, topTen, onClose, onViewPhoto, onSave, onCho
           <div><small>MOOD</small><strong>{entry.emotion}</strong></div>
           {entry.note && <blockquote>{entry.note}</blockquote>}
           <div className="tag-row">{entry.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>
-          {topTen && <button className="detail-bestow" onClick={onBestow}><Mascot pose="name" />{entry.bestowedName ? '重新赐名' : '此味已入十席 · 现在赐名'}</button>}
+          {topTen && <button className="detail-bestow" onClick={onBestow}>{entry.bestowedName ? '重新赐名' : '此味已入十席 · 现在赐名'}</button>}
         </div>
       )}
     </section>

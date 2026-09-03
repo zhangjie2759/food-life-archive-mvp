@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, LoaderCircle, RefreshCw, X } from 'lucide-react'
-import { Mascot } from './Mascot'
 
 type CameraStatus = 'starting' | 'ready' | 'capturing' | 'error'
 
@@ -117,7 +116,6 @@ export function CameraCapture({ onCapture, onClose }: { onCapture: (file: File) 
         {status === 'starting' && <div className="camera-state"><LoaderCircle className="spin" /><span>正在打开摄像头…</span></div>}
         {status === 'error' && <div className="camera-state error"><Camera /><strong>摄像头没有打开</strong><span>{error}</span><button className="button secondary" onClick={() => void startCamera(facingMode)}>重新尝试</button><button className="text-button" onClick={close}>进入榜单</button></div>}
         <div className="camera-guide" aria-hidden="true" />
-        <Mascot pose="camera" className="camera-mascot" />
       </div>
       <div className="camera-controls">
         <span>把这一道菜放进画面中央</span>

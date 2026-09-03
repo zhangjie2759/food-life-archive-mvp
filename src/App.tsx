@@ -28,7 +28,6 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import { CameraCapture } from './components/CameraCapture'
 import { ImageCropper } from './components/ImageCropper'
 import { EntryDetail, type EntryContentChanges } from './components/EntryDetail'
-import { Mascot } from './components/Mascot'
 import { PhotoViewer } from './components/PhotoViewer'
 import { db, completeOnboarding, deleteEntry, friendlyStorageError, resetAllData, updateEntryContent } from './data/db'
 import { compressImageToWebP, readAsDataUrl, validateImageFile } from './lib/image'
@@ -132,7 +131,6 @@ function RecordHome({ draft, entries, onStart, onOpenCamera, onFile, onResume, o
   }, [onFile])
   return (
     <section>
-      <div className="section-mascot"><Mascot pose="camera" /></div>
       <PageHeader eyebrow="QUICK RECORD" title="拍下这道菜" description="只记录，吃完再排。" />
       <button className="capture-card" onClick={() => { onStart(); onOpenCamera() }} data-testid="start-record">
         <span className="capture-icon"><Camera size={30} /></span>
@@ -197,7 +195,6 @@ function SuggestionForm({ draft, busy, onChange, onBack, onConfirm }: {
     <section data-testid="suggestion-form">
       <button className="back-button" onClick={onBack}><ArrowLeft size={19} />返回</button>
       <div className="photo-hero compact"><img src={draft.image} alt="本次记录的美食" /></div>
-      <div className="ai-mascot"><Mascot pose="research" /></div>
       <div className="mock-badge"><Sparkles size={16} />{draft.providerLabel || 'AI 识别结果'} · 请核准</div>
       <PageHeader eyebrow="IDENTIFICATION REPORT" title={fields.name ? <>识别为：<span>{fields.name}</span></> : <>没有认准，请你定名</>} description="AI 负责辨认，不负责好不好吃。" />
       <div className="quick-form">
@@ -241,7 +238,6 @@ function ComparisonView({ draft, anchor, busy, onDecision }: {
         <span>最多 4 次</span>
       </div>
       <div className="progress-track"><span style={{ width: `${round * 25}%` }} /></div>
-      <div className="duel-mascots"><Mascot pose="left" /><Mascot pose="right" /></div>
       <PageHeader eyebrow={isBlack ? 'BLACK LIST VERDICT' : 'RED LIST VERDICT'} title="谁更值得留在前面？" description={isBlack ? '选择更该排在黑榜前面的那一道。' : '不打分，只做一次明确比较。'} />
       <div className="duel-grid">
         <button disabled={busy} className="food-choice" data-testid="choose-new" onClick={() => onDecision('left')}>
@@ -291,7 +287,6 @@ function ArchivePage({ entries, onDelete, onOpen, onViewPhoto }: { entries: Food
   const sorted = [...entries].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
   return (
     <section>
-      <div className="section-mascot archive-mascot"><Mascot pose="waiting" /></div>
       <PageHeader eyebrow="FOOD ARCHIVE" title="我的食物档案" description={`${entries.length} 份在册记录 · 点击照片可放大`} />
       {sorted.length === 0 ? <EmptyState icon={Archive} title="还没有在册档案" body="提交第一张食物照片，建立标准记录。" /> : (
         <div className="timeline" data-testid="archive-list">
@@ -353,7 +348,7 @@ function RankingPage({ entries, groups, motion, onResume, onMove, onBestow, onSh
   return (
     <section data-testid="ranking-page" className={`editorial-ranking board-${board}`}>
       <header className="ranking-masthead">
-        <div className="ranking-brand"><Mascot pose="brand" /><div><strong>我的美食榜</strong><small>私人美食评审局</small></div></div>
+        <div className="ranking-brand"><div><strong>我的美食榜</strong><small>私人美食评审局</small></div></div>
         <b>{period === 'month' ? month.replace('-', '.') : period === 'year' ? year : 'LIFE'}</b>
       </header>
       <div className="board-switch" role="tablist" aria-label="红黑榜切换">
@@ -384,7 +379,7 @@ function RankingPage({ entries, groups, motion, onResume, onMove, onBestow, onSh
 
       {period !== 'life' && reportEntries.length > 0 && (
         <details className="taste-report" data-testid="taste-report">
-          <summary><span><small>{period === 'month' ? 'MONTHLY TASTE REPORT' : 'YEARLY TASTE REPORT'}</small><strong>{period === 'month' ? '本月味觉研究报告' : '年度味觉研究报告'}</strong></span><Mascot pose="report" /></summary>
+          <summary><span><small>{period === 'month' ? 'MONTHLY TASTE REPORT' : 'YEARLY TASTE REPORT'}</small><strong>{period === 'month' ? '本月味觉研究报告' : '年度味觉研究报告'}</strong></span></summary>
           <div className="report-bars">{reportGroups.map(([name, count]) => <div key={name}><span>{name}</span><i><b style={{ width: `${Math.max(8, Math.round(count / reportEntries.length * 100))}%` }} /></i><strong>{Math.round(count / reportEntries.length * 100)}%</strong></div>)}</div>
           <div className="report-stats"><div><strong>{reportEntries.length}</strong><span>道在榜</span></div><div><strong>{reportGroups.length}</strong><span>类味觉</span></div><div><strong>{Math.min(10, reportEntries.length)}</strong><span>道入十席</span></div></div>
         </details>
@@ -393,7 +388,6 @@ function RankingPage({ entries, groups, motion, onResume, onMove, onBestow, onSh
       {pending.length > 0 && (
         <div className="review-queue" data-testid="pending-list">
           <div><p className="eyebrow">AWAITING VERDICT</p><h2>{pending.length} 份记录等待裁定</h2></div>
-          <Mascot pose="waiting" className="queue-mascot" />
           {pending.map((entry) => (
             <article key={entry.id} className="review-card">
               <img src={entry.image} alt={entry.name} />
@@ -448,7 +442,7 @@ function BestowCeremony({ entry, rank, onClose, onConfirm }: {
     <section className="bestow-screen" data-testid="bestow-screen">
       <button className="bestow-close" onClick={onClose} aria-label="关闭赐名"><X /></button>
       <div className="bestow-index">TOP 10 / NO.{String(rank).padStart(2, '0')}</div>
-      <div className="bestow-heading"><Mascot pose="name" /><div><small>赐名仪式</small><strong>此味已入十席</strong></div></div>
+      <div className="bestow-heading"><div><small>赐名仪式</small><strong>此味已入十席</strong></div></div>
       <img src={entry.image} alt={entry.aiName || entry.name} />
       <p className="bestow-standard">STANDARD NAME<br /><strong>{entry.name}</strong></p>
       <div className="bestow-rule" />
@@ -470,7 +464,7 @@ function RankingCeremony({ board, rank, name, onClose }: { board: RankingBoard; 
   }, [rank, onClose])
   return (
     <div className={`ranking-ceremony ${board} ${level}`} data-testid="ranking-ceremony" role="dialog" aria-modal="true" aria-labelledby="ranking-ceremony-title" aria-describedby="ranking-ceremony-name">
-      {rank === 1 && <><div className="ceremony-scan" /><div className="ceremony-halo halo-one" /><div className="ceremony-halo halo-two" /><div className={`leader-emblem ${board}`} aria-hidden="true"><i /><i /><i /></div><Mascot pose={board === 'red' ? 'crown' : 'verdict'} className="ceremony-mascot" /><div className="apex-label">OFFICIAL CHANGE OF NO.01</div></>}
+      {rank === 1 && <><div className="ceremony-scan" /><div className="ceremony-halo halo-one" /><div className="ceremony-halo halo-two" /><div className={`leader-emblem ${board}`} aria-hidden="true"><i /><i /><i /></div><div className="apex-label">OFFICIAL CHANGE OF NO.01</div></>}
       <div className="ceremony-rule" />
       <span>{board === 'red' ? 'RED LIST VERDICT' : 'BLACK LIST VERDICT'}</span>
       <strong className="ceremony-rank">{String(rank).padStart(2, '0')}</strong>
@@ -501,7 +495,6 @@ function ProfilePage({ entries, events, onExport, onClear, onLoadDemo }: {
   const medianComparisons = median(completed.flatMap((event) => event.comparisonCount === undefined ? [] : [event.comparisonCount]))
   return (
     <section>
-      <div className="section-mascot"><Mascot pose="report" /></div>
       <PageHeader eyebrow="TASTE RESEARCH" title="我的味觉研究" description="只统计本机档案，不提供大众口味结论。" />
       <div className="dna-card">
         {dna.length === 0 ? <p>记录几道味道后，这里会长出你的味觉组成。</p> : dna.map((item, index) => (

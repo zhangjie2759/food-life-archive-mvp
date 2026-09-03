@@ -2,7 +2,7 @@
 
 Captured from the production build at a 390 × 844 CSS-pixel viewport on 2026-09-02.
 
-- `camera-390.png`: cold-start camera state with miniature-chef capture guidance.
+- `camera-390.png`: cold-start camera state and capture guidance.
 - `ranking-390.png`: red life ranking with the new black/white/red editorial layout and local demo data.
 - `detail-390.png`: full food archive detail with expandable photo and editable metadata entry point.
 
